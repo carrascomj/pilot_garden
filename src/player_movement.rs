@@ -41,17 +41,18 @@ struct PreviousPhysicalTranslation(Vec3);
 
 fn spawn_player(mut commands: Commands) {
     // Create the player with the camera (FPS-like)
+    let start_pos = Vec3::new(-2.0, 10.0, 4.0);
     commands.spawn((
         Camera3d::default(),
         Camera {
             clear_color: ClearColorConfig::Custom(Color::srgb(0.25, 0.2, 0.5)),
             ..Default::default()
         },
-        Transform::from_xyz(-4.0, GROUND_Y, 8.0).looking_at(Vec3::new(0.0, 1.0, 0.0), Vec3::Y),
+        Transform::from_translation(start_pos).looking_at(Vec3::new(0.0, 1.0, 0.0), Vec3::Y),
         AccumulatedInput::default(),
         Velocity::default(),
-        PhysicalTranslation::default(),
-        PreviousPhysicalTranslation::default(),
+        PhysicalTranslation(start_pos),
+        PreviousPhysicalTranslation(start_pos),
         Player {},
     ));
 }
@@ -108,11 +109,10 @@ fn move_player(
 
     // stay on ground: flatten the vector and renormalize
     velocity.0 = input.normalize_or_zero() * SPEED;
-    // simple jump impulse
-    if keyboard_input.just_pressed(KeyCode::Space)
-        && (transform.translation.y.abs() - GROUND_Y) < 0.01
-    {
-        velocity.y += 300.0; // tweak jump strength
+    let grounded = velocity.0.y.abs() < 0.01;
+
+    if keyboard_input.just_pressed(KeyCode::Space) && grounded {
+        velocity.y += 300.0;
     }
 }
 
@@ -160,55 +160,82 @@ fn player_aabb(pos: Vec3) -> Collider {
         max: pos + PLAYER_HALF_EXTENTS,
     }
 }
+fn player_feet(translation: Vec3) -> f32 {
+    // world-space y position of the bottom of the capsule / AABB
+    translation.y - PLAYER_HALF_EXTENTS.y
+}
 
 /// Advance the physics simulation by one fixed timestep. This may run zero or multiple times per frame.
-///
-/// Note that since this runs in `FixedUpdate`, `Res<Time>` would be `Res<Time<Fixed>>` automatically.
-/// We are being explicit here for clarity.
+/// Collisions are also integrated here.
 fn advance_physics(
     fixed_time: Res<Time<Fixed>>,
-    mut query: Query<(
-        &mut PhysicalTranslation,
-        &mut PreviousPhysicalTranslation,
-        &mut AccumulatedInput,
-        &mut Velocity,
-    )>,
+    mut query: Query<
+        (
+            &mut PhysicalTranslation,
+            &mut PreviousPhysicalTranslation,
+            &mut AccumulatedInput,
+            &mut Velocity,
+        ),
+        With<Player>,
+    >,
     colliders: Query<&Collider>,
 ) {
+    const SKIN: f32 = 0.001; // small offset to prevent re-intersection
     let dt = fixed_time.delta_secs();
-    if let Ok((
-        mut current_physical_translation,
-        mut previous_physical_translation,
-        mut input,
-        mut velocity,
-    )) = query.single_mut()
-    {
-        velocity.y -= GRAVITY * dt;
-        previous_physical_translation.0 = current_physical_translation.0;
-        current_physical_translation.0 += velocity.0 * fixed_time.delta_secs();
 
-        let player_bb_next = player_aabb(current_physical_translation.0);
+    if let Ok((mut pos, mut prev_pos, mut input, mut vel)) = query.single_mut() {
+        // ------------------------------------------------ integrate forces --
+        vel.y -= GRAVITY * dt;
+        prev_pos.0 = pos.0;
+
+        // Work on a local copy first
+        let mut next = pos.0;
+
+        // -------------------------------------------------- Y axis first ----
+        next.y += vel.y * dt;
+        let bb_y = player_aabb(next);
+
         for col in &colliders {
-            if player_bb_next.intersects(col) {
-                // naive resolution: snap back to previous position
-                // and wipe velocity on the colliding axis.
-                current_physical_translation.0 = previous_physical_translation.0;
-                velocity.0.x = 0.0;
-                velocity.0.z = 0.0;
+            if bb_y.intersects(col) {
+                if vel.y > 0.0 {
+                    // hit ceiling
+                    next.y = col.min.y - PLAYER_HALF_EXTENTS.y - SKIN;
+                } else {
+                    // landed on something
+                    next.y = col.max.y + PLAYER_HALF_EXTENTS.y + SKIN;
+                }
+                vel.y = vel.y.max(0.0);
+                break; // Y resolved, no need to test others
+            }
+        }
+
+        // -------------------------------------------------- X axis ----------
+        next.x += vel.x * dt;
+        let bb_x = player_aabb(next);
+
+        for col in &colliders {
+            if bb_x.intersects(col) {
+                next.x = prev_pos.x; // snap back only on this axis
+                vel.x = 0.0;
                 break;
             }
         }
-        /* --- ground-clamp ----------------------------------------- */
-        if current_physical_translation.y < GROUND_Y {
-            current_physical_translation.y = GROUND_Y; // snap to floor
-            if velocity.y < 0.0 {
-                // cancel downward speed
-                velocity.y = 0.0;
+
+        // -------------------------------------------------- Z axis ----------
+        next.z += vel.z * dt;
+        let bb_z = player_aabb(next);
+
+        for col in &colliders {
+            if bb_z.intersects(col) {
+                next.z = prev_pos.z;
+                vel.z = 0.0;
+                break;
             }
         }
 
-        // Reset the input accumulator, as we are currently consuming all input that happened since the last fixed timestep.
-        input.0 = Vec3::ZERO;
+        // commit
+        pos.0 = next;
+        input.0 = Vec3::ZERO; // clear accumulator
     }
 }
 

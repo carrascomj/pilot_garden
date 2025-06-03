@@ -45,18 +45,23 @@ fn main() {
 /// Setup colliders. Since the setup is very simple, we set colliders manually;
 /// they only interact with the player; and they are independent from the 3D models.
 fn setup_colliders(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
-    for (half_x, half_z, x, z, mult_y) in [
+    for (half_x, half_z, x, z, mult_y, y) in [
         // walls around the garden
-        (40.0, 1.0, 11.0, 10.0, 4.0),
-        (40.0, 1.0, 11.0, -9.5, 4.0),
-        (1.0, 20.0, -9.0, 0.0, 4.0),
-        (1.0, 20.0, 30.0, 0.0, 4.0),
+        (38.0, 2.0, 11.0, 10.0, 8.0, 1.0),
+        (38.0, 2.0, 11.0, -9.5, 8.0, 1.0),
+        (2.0, 20.0, -9.5, 0.0, 8.0, 1.0),
+        (2.0, 20.0, 30.5, 0.0, 8.0, 1.0),
         // fences
-        (0.5, 10.0, 18.2, -4.0, 1.0),
-        (7.5, 0.5, 26.0, 1.35, 1.0),
+        (0.5, 10.0, 18.2, -4.0, 2.0, 1.0),
+        (7.5, 0.5, 26.0, 1.35, 2.0, 1.0),
+        // floor (subdivided to accomodate dirt colliders)
+        (26.0, 20.0, 5.0, 0.0, 1.0, -1.0),
+        (12.0, 10.0, 24.0, 6.0, 1.0, -1.0),
+        // TODO: remove after implementing the dirt colliders
+        (12.0, 10.0, 24.0, -5.0, 1.0, -1.0),
     ] {
         let cub = Cuboid::new(half_x, GROUND_Y * mult_y, half_z);
-        let cub_transform = Transform::from_xyz(x, 1.0, z);
+        let cub_transform = Transform::from_xyz(x, y, z);
         let cub_collider = Collider::from((&cub, &cub_transform));
         let cub_mesh = meshes.add(cub);
         commands.spawn((Mesh3d(cub_mesh), cub_transform, cub_collider));
