@@ -36,7 +36,7 @@ fn main() {
             ..default()
         })
         .add_systems(Startup, (setup, setup_colliders))
-        .add_systems(Update, find_main_bone)
+        .add_systems(PostUpdate, find_main_bone)
         .add_systems(Update, (trigger_main_bone_animation, animate_main_bone))
         .add_plugins(PlayerPlugin)
         .run();
@@ -104,19 +104,21 @@ fn setup(
 struct MainBone {
     timer: Timer,
     rest_rot: Quat,
+    active: bool,
 }
 
 fn find_main_bone(
     mut commands: Commands,
-    new_names: Query<(Entity, &Name, &Transform), Added<Name>>,
+    new_names: Populated<(Entity, &Name, &Transform), Added<Name>>,
 ) {
-    for (entity, name, transform) in &new_names {
+    for (entity, name, transform) in new_names.iter() {
         if name.as_str().starts_with("main") {
             let mut timer = Timer::new(Duration::from_millis(500), TimerMode::Once);
             timer.set_elapsed(Duration::from_millis(500));
             commands.entity(entity).insert(MainBone {
                 timer,
                 rest_rot: transform.rotation,
+                active: true,
             });
         }
     }
@@ -135,10 +137,14 @@ fn trigger_main_bone_animation(
             .distance_squared(transform.translation)
             < BUMP_DISTANCE
         {
-            if main_bone.timer.finished() {
+            if main_bone.timer.finished() && main_bone.active {
                 main_bone.timer.unpause();
                 main_bone.timer.reset();
+                // only trigger the animation once after entering the bump distance
+                main_bone.active = false;
             }
+        } else {
+            main_bone.active = true;
         }
     }
 }
