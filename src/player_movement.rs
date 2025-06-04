@@ -104,15 +104,15 @@ fn move_player(
     if keyboard_input.pressed(KeyCode::KeyD) {
         input.0 += transform.rotation * Vec3::X;
     }
-    // the position of the camera should only act on x and z axes.
-    input.y = 0.0;
 
     // stay on ground: flatten the vector and renormalize
-    velocity.0 = input.normalize_or_zero() * SPEED;
-    let grounded = velocity.0.y.abs() < 0.01;
+    let input_normalized = input.normalize_or_zero() * SPEED;
+    velocity.0.x = input_normalized.x;
+    velocity.0.z = input_normalized.z;
+    let grounded = velocity.0.y.abs() < 0.00001;
 
     if keyboard_input.just_pressed(KeyCode::Space) && grounded {
-        velocity.y += 100.0;
+        velocity.y += 50.0;
     }
 }
 
