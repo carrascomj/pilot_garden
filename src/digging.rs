@@ -1,6 +1,8 @@
 //! Systems for digable terrain.
 
 use crate::player_movement::Collider;
+use bevy::color::palettes::tailwind::{PINK_100, RED_500};
+use bevy::picking::pointer::PointerInteraction;
 use bevy::prelude::*;
 use bevy::scene::SceneInstanceReady;
 
@@ -12,11 +14,13 @@ impl Plugin for DiggingPlugin {
     fn build(&self, app: &mut App) {
         app.add_observer(add_dirt_colliders)
             .init_gizmo_group::<MyRoundGizmos>()
+            // TODO: remove this for custom interaction system
+            .add_plugins(MeshPickingPlugin)
             .add_systems(
                 PostUpdate,
                 add_colliders_to_diggables.after(TransformSystem::TransformPropagate),
             )
-            .add_systems(Update, draw_collider_gizmos);
+            .add_systems(Update, draw_mesh_intersections);
         if cfg!(debug_assertions) {
             app.add_systems(Update, (activate_gizmos, draw_collider_gizmos));
         }
@@ -52,10 +56,13 @@ fn add_colliders_to_diggables(
     let size = Vec3::new(1.0, 0.5, 1.0);
 
     for (ent, trans) in diggables.iter() {
-        commands.entity(ent).insert(Collider::from_translation(
-            trans.translation + Vec3::Y * 0.5,
-            size,
-        ));
+        commands
+            .entity(ent)
+            .insert(Collider::from_translation(
+                trans.translation + Vec3::Y * 0.5,
+                size,
+            ))
+            .observe(remove_on_click);
     }
 }
 
@@ -84,5 +91,28 @@ fn activate_gizmos(
     }
     if keyboard_input.just_pressed(KeyCode::KeyI) {
         config_store.config_mut::<MyRoundGizmos>().0.enabled ^= true;
+    }
+}
+
+/// TODO: remove this for custom interaction system. It should be in the middle
+/// of the screen instead of at the pointer.
+fn draw_mesh_intersections(pointers: Query<&PointerInteraction>, mut gizmos: Gizmos) {
+    for (point, normal) in pointers
+        .iter()
+        .filter_map(|interaction| interaction.get_nearest_hit())
+        .filter_map(|(_entity, hit)| hit.position.zip(hit.normal))
+    {
+        gizmos.sphere(point, 0.05, RED_500);
+        gizmos.arrow(point, point + normal.normalize() * 0.5, PINK_100);
+    }
+}
+
+fn remove_on_click(
+    trigger: Trigger<Pointer<Pressed>>,
+    mut commands: Commands,
+    diggables: Query<Entity, With<Diggable>>,
+) {
+    if let Ok(digged) = diggables.get(trigger.target()) {
+        commands.entity(digged).despawn();
     }
 }
