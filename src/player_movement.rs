@@ -1,6 +1,6 @@
 use crate::config::{CAMERA_SENSITIVITY, GRAVITY, PLAYER_HALF_EXTENTS, SPEED};
 use bevy::{input::mouse::AccumulatedMouseMotion, prelude::*};
-use std::f32::consts::FRAC_PI_2;
+use std::f32::consts::{FRAC_PI_2, PI};
 
 #[derive(Component)]
 pub struct Player;
@@ -44,6 +44,10 @@ fn spawn_player(mut commands: Commands) {
     let start_pos = Vec3::new(-2.0, 10.0, 4.0);
     commands.spawn((
         Camera3d::default(),
+        Projection::Perspective(PerspectiveProjection {
+            fov: PI / 3.0,
+            ..default()
+        }),
         Camera {
             clear_color: ClearColorConfig::Custom(Color::srgb(0.25, 0.2, 0.5)),
             ..Default::default()
