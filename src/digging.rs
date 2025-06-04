@@ -3,13 +3,12 @@
 use std::f32::consts::PI;
 use std::time::Duration;
 
+use crate::config::REST_ROT;
 use crate::player_movement::{Collider, Player};
 use bevy::color::palettes::tailwind::{PINK_100, RED_500};
 use bevy::picking::pointer::PointerInteraction;
 use bevy::prelude::*;
 use bevy::scene::SceneInstanceReady;
-
-/// resting position when picked
 
 /// Only one item can be held at a time.
 #[derive(Resource)]
@@ -17,6 +16,7 @@ pub enum Inventory {
     Shovel(usize),
     MiningPick,
     Food,
+    Seeds,
     None,
 }
 
@@ -72,35 +72,20 @@ struct Minable;
 enum Collectible {
     Shovel,
     MiningPick,
+    Seeds,
     Food,
 }
 
 impl Collectible {
-    fn on_hand_poses(&self) -> (Vec3, Quat) {
+    const fn on_hand_poses(&self) -> (Vec3, Quat) {
         match self {
             Collectible::MiningPick => {
                 const PICK_OFFSET: Vec3 = Vec3::new(1.8, 1.5, -2.4);
-                (
-                    PICK_OFFSET,
-                    Quat::from_euler(
-                        EulerRot::YXZ,
-                        -std::f32::consts::FRAC_PI_2, // yaw  -90°  (tip forward)
-                        -0.35,                        // pitch ~-20° (look slightly down along it)
-                        0.25,                         // roll  +14°  (handle tilt)
-                    ),
-                )
+                (PICK_OFFSET, REST_ROT)
             }
             _ => {
                 const FPS_OFFSET: Vec3 = Vec3::new(1.4, -0.25, -1.8); // X right, Y up, Z forward
-                (
-                    FPS_OFFSET,
-                    Quat::from_euler(
-                        EulerRot::YXZ,
-                        -std::f32::consts::FRAC_PI_2, // yaw  -90°  (tip forward)
-                        -0.35,                        // pitch ~-20° (look slightly down along it)
-                        0.25,                         // roll  +14°  (handle tilt)
-                    ),
-                )
+                (FPS_OFFSET, REST_ROT)
             }
         }
     }
@@ -246,6 +231,7 @@ fn remove_on_click(
             Collectible::Shovel => Inventory::Shovel(7),
             Collectible::MiningPick => Inventory::MiningPick,
             Collectible::Food => Inventory::Food,
+            Collectible::Seeds => Inventory::Seeds,
         };
         on_hand.active = true;
     }
@@ -367,7 +353,7 @@ fn animate_interaction(mut bones: Query<(&mut Transform, &OnHand, &Collectible)>
                 (t, r)
             }
 
-            Collectible::Food => {
+            Collectible::Food | Collectible::Seeds => {
                 let a = wave(u);
                 let t = rest_pos
                     + Vec3::new(
