@@ -63,13 +63,13 @@ struct MyRoundGizmos;
 // Markers for entities that can be interacted with.
 /// Can be removed with the shovel.
 #[derive(Component)]
-struct Diggable;
+pub struct Diggable;
 /// Can be removed with the Mining Pick.
 #[derive(Component)]
-struct Minable;
+pub struct Minable;
 /// Can be taken (shovel, mining pick, food)
 #[derive(Component)]
-enum Collectible {
+pub enum Collectible {
     Shovel,
     MiningPick,
     Seeds,
@@ -179,7 +179,7 @@ fn draw_mesh_intersections(pointers: Query<&PointerInteraction>, mut gizmos: Giz
     }
 }
 
-fn remove_on_click(
+pub fn remove_on_click(
     trigger: Trigger<Pointer<Pressed>>,
     mut commands: Commands,
     mut inventory: ResMut<Inventory>,
@@ -196,7 +196,6 @@ fn remove_on_click(
                 *counter -= 1;
                 for (_, _, _, mut on_hand) in collectables.iter_mut() {
                     if on_hand.active {
-                        println!("on hand activated!");
                         on_hand.timer.unpause();
                         on_hand.timer.reset();
                     }
@@ -208,6 +207,12 @@ fn remove_on_click(
             if let Ok(mined) = minables.get(trigger.target()) {
                 // trigger.event().pointer_location can be used for particles etc.
                 commands.entity(mined).despawn();
+                for (_, _, _, mut on_hand) in collectables.iter_mut() {
+                    if on_hand.active {
+                        on_hand.timer.unpause();
+                        on_hand.timer.reset();
+                    }
+                }
                 return;
             }
         }
@@ -269,7 +274,7 @@ fn manage_inventory(
 }
 
 #[derive(Component)]
-struct OnHand {
+pub struct OnHand {
     active: bool,
     timer: Timer,
 }
@@ -307,6 +312,22 @@ fn add_collectibles(
                 commands
                     .entity(ent)
                     .insert(Collectible::MiningPick)
+                    .insert(OnHand::new())
+                    .observe(remove_on_click);
+            }
+            "Food" => {
+                println!("added pick");
+                commands
+                    .entity(ent)
+                    .insert(Collectible::Food)
+                    .insert(OnHand::new())
+                    .observe(remove_on_click);
+            }
+            "Seeds" => {
+                println!("added pick");
+                commands
+                    .entity(ent)
+                    .insert(Collectible::Seeds)
                     .insert(OnHand::new())
                     .observe(remove_on_click);
             }

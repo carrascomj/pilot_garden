@@ -4,9 +4,11 @@ use std::time::Duration;
 
 mod config;
 mod digging;
+mod dodgy;
 mod player_movement;
 
 use digging::DiggingPlugin;
+use dodgy::DodgyPlugin;
 use player_movement::{Collider, Player, PlayerPlugin};
 
 use config::{BUMP_DISTANCE, GROUND_Y};
@@ -42,7 +44,7 @@ fn main() {
         .add_systems(PostUpdate, find_main_bone)
         .add_systems(Update, (trigger_main_bone_animation, animate_main_bone))
         // custom game mechanics
-        .add_plugins((PlayerPlugin, DiggingPlugin))
+        .add_plugins((PlayerPlugin, DodgyPlugin, DiggingPlugin))
         .run();
 }
 
