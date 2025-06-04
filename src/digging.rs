@@ -353,7 +353,7 @@ fn animate_interaction(mut bones: Query<(&mut Transform, &OnHand, &Collectible)>
             continue;
         }
         // normalised time in the [0, 1] animation range
-        let u = on_hand.timer.elapsed().as_secs_f32() / on_hand.timer.duration().as_secs_f32();
+        let u = on_hand.timer.fraction();
 
         let (translation, rotation) = match collectible {
             Collectible::Shovel => {
@@ -418,7 +418,7 @@ fn remove_animation(
             commands.entity(ent).despawn();
         } else {
             rm_timer.0.tick(time.delta());
-            let u = rm_timer.0.elapsed().as_secs_f32() / rm_timer.0.duration().as_secs_f32();
+            let u = rm_timer.0.fraction();
             trans.scale = (1. - u) * Vec3::ONE + u * Vec3::ZERO;
             trans.rotation *= Quat::from_rotation_y(0.2);
         }

@@ -65,7 +65,7 @@ fn activate_dodge(
 fn animate_dodge(mut dodgers: Query<(&mut Transform, &Dodgy)>) {
     for (mut trans, dodger) in &mut dodgers {
         if !dodger.timer.finished() && !dodger.timer.paused() {
-            let u = dodger.timer.elapsed().as_secs_f32() / dodger.timer.duration().as_secs_f32();
+            let u = dodger.timer.fraction();
             trans.translation = u * dodger.last_pos + (1. - u) * dodger.init_pos;
         }
     }

@@ -152,7 +152,7 @@ fn animate_main_bone(mut bones: Query<(&mut Transform, &MainBone)>) {
 
     for (mut transform, bone) in &mut bones {
         if !bone.timer.finished() {
-            let u = bone.timer.elapsed().as_secs_f32() / bone.timer.duration().as_secs_f32();
+            let u = bone.timer.fraction();
 
             // damped wobble: sin curve multiplied by an exponential decay
             let angle = AMP * (TAU * FREQ * u).sin() * (-DECAY * u).exp();
