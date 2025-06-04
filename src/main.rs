@@ -3,7 +3,10 @@ use std::f32::consts::TAU;
 use std::time::Duration;
 
 mod config;
+mod digging;
 mod player_movement;
+
+use digging::DiggingPlugin;
 use player_movement::{Collider, Player, PlayerPlugin};
 
 use config::{BUMP_DISTANCE, GROUND_Y};
@@ -38,7 +41,8 @@ fn main() {
         .add_systems(Startup, (setup, setup_colliders))
         .add_systems(PostUpdate, find_main_bone)
         .add_systems(Update, (trigger_main_bone_animation, animate_main_bone))
-        .add_plugins(PlayerPlugin)
+        // custom game mechanics
+        .add_plugins((PlayerPlugin, DiggingPlugin))
         .run();
 }
 
@@ -57,8 +61,6 @@ fn setup_colliders(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
         // floor (subdivided to accomodate dirt colliders)
         (26.0, 20.0, 5.0, 0.0, 1.0, -1.0),
         (12.0, 10.0, 24.0, 6.0, 1.0, -1.0),
-        // TODO: remove after implementing the dirt colliders
-        (12.0, 10.0, 24.0, -5.0, 1.0, -1.0),
     ] {
         let cub = Cuboid::new(half_x, GROUND_Y * mult_y, half_z);
         let cub_transform = Transform::from_xyz(x, y, z);
@@ -68,11 +70,7 @@ fn setup_colliders(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     }
 }
 
-fn setup(
-    mut commands: Commands,
-    mut config_store: ResMut<GizmoConfigStore>,
-    asset_server: Res<AssetServer>,
-) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Spawn the first scene in `models/SimpleSkin/SimpleSkin.gltf`
     commands.spawn(SceneRoot(
         asset_server.load(GltfAssetLabel::Scene(0).from_asset("bush.gltf")),
@@ -91,10 +89,6 @@ fn setup(
         },
         Transform::from_xyz(10.0, 10.0, 8.0).looking_at(Vec3::X * 10.0, Vec3::NEG_Y),
     ));
-
-    if cfg!(debug_assertions) {
-        config_store.config_mut::<AabbGizmoConfigGroup>().1.draw_all ^= true;
-    }
 }
 
 /// The player may bump with objects. If they have a "main" bone, this will cause a

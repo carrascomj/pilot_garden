@@ -1,4 +1,4 @@
-use crate::config::{CAMERA_SENSITIVITY, GRAVITY, GROUND_Y, PLAYER_HALF_EXTENTS, SPEED};
+use crate::config::{CAMERA_SENSITIVITY, GRAVITY, PLAYER_HALF_EXTENTS, SPEED};
 use bevy::{input::mouse::AccumulatedMouseMotion, prelude::*};
 use std::f32::consts::FRAC_PI_2;
 
@@ -112,7 +112,7 @@ fn move_player(
     let grounded = velocity.0.y.abs() < 0.01;
 
     if keyboard_input.just_pressed(KeyCode::Space) && grounded {
-        velocity.y += 300.0;
+        velocity.y += 100.0;
     }
 }
 
@@ -124,13 +124,6 @@ pub struct Collider {
 
 impl Collider {
     #[inline]
-    pub fn contains(&self, p: Vec3) -> bool {
-        (self.min.x..=self.max.x).contains(&p.x)
-            && (self.min.y..=self.max.y).contains(&p.y)
-            && (self.min.z..=self.max.z).contains(&p.z)
-    }
-
-    #[inline]
     pub fn intersects(&self, other: &Collider) -> bool {
         !(self.max.x < other.min.x
             || self.min.x > other.max.x
@@ -139,18 +132,22 @@ impl Collider {
             || self.max.z < other.min.z
             || self.min.z > other.max.z)
     }
+
+    /// half_size as done by a `Cuboid`.
+    pub fn from_translation(translation: Vec3, half_size: Vec3) -> Self {
+        Collider {
+            min: translation - half_size,
+            max: translation + half_size,
+        }
+    }
 }
 
 impl From<(&Cuboid, &Transform)> for Collider {
     fn from((cuboid, t): (&Cuboid, &Transform)) -> Self {
-        // half_extents already includes the object's local scale
         let half = cuboid.half_size * t.scale;
         let centre = t.translation;
 
-        Collider {
-            min: centre - half,
-            max: centre + half,
-        }
+        Collider::from_translation(centre, half)
     }
 }
 
@@ -159,10 +156,6 @@ fn player_aabb(pos: Vec3) -> Collider {
         min: pos - PLAYER_HALF_EXTENTS,
         max: pos + PLAYER_HALF_EXTENTS,
     }
-}
-fn player_feet(translation: Vec3) -> f32 {
-    // world-space y position of the bottom of the capsule / AABB
-    translation.y - PLAYER_HALF_EXTENTS.y
 }
 
 /// Advance the physics simulation by one fixed timestep. This may run zero or multiple times per frame.
