@@ -39,16 +39,19 @@ impl Plugin for DiggingPlugin {
             // TODO: remove this for custom interaction system
             .add_plugins(MeshPickingPlugin)
             .add_systems(
-                PostUpdate,
-                add_colliders_to_diggables.after(TransformSystem::TransformPropagate),
-            )
-            .add_systems(
                 Update,
                 (
                     draw_mesh_intersections,
                     manage_inventory,
                     animate_interaction,
                     tick_on_hand_active,
+                ),
+            )
+            .add_systems(
+                PostUpdate,
+                (
+                    add_colliders_to_diggables.after(TransformSystem::TransformPropagate),
+                    remove_animation,
                 ),
             );
         if cfg!(debug_assertions) {
@@ -192,7 +195,7 @@ pub fn remove_on_click(
         Inventory::Shovel(counter) => {
             if let Ok(digged) = diggables.get(trigger.target()) {
                 // trigger.event().pointer_location can be used for particles etc.
-                commands.entity(digged).despawn();
+                commands.entity(digged).insert(RemoveTimer::new());
                 *counter -= 1;
                 for (_, _, _, mut on_hand) in collectables.iter_mut() {
                     if on_hand.active {
@@ -206,7 +209,7 @@ pub fn remove_on_click(
         Inventory::MiningPick => {
             if let Ok(mined) = minables.get(trigger.target()) {
                 // trigger.event().pointer_location can be used for particles etc.
-                commands.entity(mined).despawn();
+                commands.entity(mined).insert(RemoveTimer::new());
                 for (_, _, _, mut on_hand) in collectables.iter_mut() {
                     if on_hand.active {
                         on_hand.timer.unpause();
@@ -389,5 +392,31 @@ fn animate_interaction(mut bones: Query<(&mut Transform, &OnHand, &Collectible)>
 
         transform.translation = translation;
         transform.rotation = rotation;
+    }
+}
+
+#[derive(Component)]
+struct RemoveTimer(Timer);
+
+impl RemoveTimer {
+    fn new() -> Self {
+        Self(Timer::from_seconds(0.8, TimerMode::Once))
+    }
+}
+
+fn remove_animation(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut to_remove: Query<(Entity, &mut Transform, &mut RemoveTimer)>,
+) {
+    for (ent, mut trans, mut rm_timer) in &mut to_remove {
+        if rm_timer.0.just_finished() {
+            commands.entity(ent).despawn();
+        } else {
+            rm_timer.0.tick(time.delta());
+            let u = rm_timer.0.elapsed().as_secs_f32() / rm_timer.0.duration().as_secs_f32();
+            trans.scale = (1. - u) * Vec3::ONE + u * Vec3::ZERO;
+            trans.rotation *= Quat::from_rotation_y(0.2);
+        }
     }
 }
