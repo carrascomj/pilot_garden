@@ -5,7 +5,7 @@ use std::ops::Deref;
 use bevy::{prelude::*, render::view::VisibilitySystems};
 
 use crate::digging::{Minable, remove_on_click};
-use crate::player_movement::Player;
+use crate::player_movement::{Collider, Player};
 
 pub struct DodgyPlugin;
 
@@ -72,16 +72,19 @@ fn animate_dodge(mut dodgers: Query<(&mut Transform, &Dodgy)>) {
 }
 
 fn spawn_bananon(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let init_trans = Vec3::new(20.0, -5.0, -5.0);
+    let last_trans = Vec3::new(20.0, -0.2, -5.0);
     commands
         .spawn((
             Dodgy {
-                init_pos: Vec3::new(20.0, -5.0, -5.0),
-                last_pos: Vec3::new(20.0, -0.2, -5.0),
+                init_pos: init_trans,
+                last_pos: last_trans,
                 timer: Timer::from_seconds(2.5, TimerMode::Once),
                 go_back: false,
             },
-            Transform::from_xyz(20.0, -5.0, -5.0),
+            Transform::from_translation(init_trans),
             Minable {},
+            Collider::from_translation(last_trans, Vec3::new(1.0, 4.0, 1.0)),
             SceneRoot(
                 asset_server.load(GltfAssetLabel::Scene(0).from_asset("banana.gltf#bananon")),
             ),

@@ -344,16 +344,20 @@ fn wave(t: f32) -> f32 {
 
 fn animate_interaction(mut bones: Query<(&mut Transform, &OnHand, &Collectible)>) {
     for (mut transform, on_hand, collectible) in &mut bones {
-        if !on_hand.active || on_hand.timer.finished() {
+        let (rest_pos, rest_rot) = collectible.on_hand_poses();
+        if !on_hand.active {
+            continue;
+        } else if on_hand.timer.finished() {
+            transform.translation = rest_pos;
+            transform.rotation = rest_rot;
             continue;
         }
         // normalised time in the [0, 1] animation range
         let u = on_hand.timer.elapsed().as_secs_f32() / on_hand.timer.duration().as_secs_f32();
-        let (rest_pos, rest_rot) = collectible.on_hand_poses();
 
         let (translation, rotation) = match collectible {
             Collectible::Shovel => {
-                let a = wave(u);
+                let a = if u < 0.5 { u * 2.0 } else { (1.0 - u) * 2.0 };
                 let t = rest_pos
                     + Vec3::new(
                         0.0,
@@ -367,11 +371,11 @@ fn animate_interaction(mut bones: Query<(&mut Transform, &OnHand, &Collectible)>
             Collectible::MiningPick => {
                 // triangular pulse (faster change at the ends)
                 let a = if u < 0.5 { u * 2.0 } else { (1.0 - u) * 2.0 };
-                let t = rest_pos
+                let t = (1.0 - a) * rest_pos
                     + Vec3::new(
                         0.0,
-                        0.35 * a,  // up over head
-                        -0.30 * a, // slight Z pull
+                        0.35 * a, // up over head
+                        2.0 * a,  // slight Z pull
                     );
                 let r = rest_rot * Quat::from_euler(EulerRot::XYZ, 1.2 * a, 0.0, 0.0);
                 (t, r)
