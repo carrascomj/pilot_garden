@@ -16,7 +16,7 @@ pub enum Inventory {
     Shovel(usize),
     MiningPick,
     Food(usize),
-    Seeds,
+    Seeds(usize),
     None,
 }
 
@@ -34,6 +34,7 @@ impl Plugin for DiggingPlugin {
     fn build(&self, app: &mut App) {
         app.add_observer(add_dirt_colliders)
             .add_observer(add_collectibles)
+            .add_event::<SeedsPlaced>()
             .init_gizmo_group::<MyRoundGizmos>()
             .init_resource::<Inventory>()
             // TODO: remove this for custom interaction system
@@ -76,7 +77,7 @@ pub struct Life {
     pub left: u8,
 }
 /// Can be taken (shovel, mining pick, food)
-#[derive(Component)]
+#[derive(Component, PartialEq)]
 pub enum Collectible {
     Shovel,
     MiningPick,
@@ -85,11 +86,22 @@ pub enum Collectible {
 }
 
 impl Collectible {
-    const fn on_hand_poses(&self) -> (Vec3, Quat) {
+    // const fn on_hand_poses(&self) -> (Vec3, Quat) {
+    fn on_hand_poses(&self) -> (Vec3, Quat) {
+        let seeds_rot = Quat::from_euler(
+            EulerRot::YXZ,
+            -0.4,  // yaw   -90°  (tip forward)
+            -0.10, // pitch -20°  (look slightly down along it)
+            -0.3,  // roll  +14°  (handle tilt)
+        );
         match self {
             Collectible::MiningPick => {
                 const PICK_OFFSET: Vec3 = Vec3::new(1.8, 1.5, -2.4);
                 (PICK_OFFSET, REST_ROT)
+            }
+            Collectible::Seeds => {
+                const SEED_OFFSET: Vec3 = Vec3::new(1.6, -0.25, -2.4); // X right, Y up, Z forward
+                (SEED_OFFSET, seeds_rot)
             }
             _ => {
                 const FPS_OFFSET: Vec3 = Vec3::new(1.4, -0.25, -1.8); // X right, Y up, Z forward
@@ -187,8 +199,14 @@ fn draw_mesh_intersections(pointers: Query<&PointerInteraction>, mut gizmos: Giz
     }
 }
 
+#[derive(Event)]
+pub struct SeedsPlaced {
+    pub hit_position: Vec3,
+}
+
 pub fn remove_on_click(
     trigger: Trigger<Pointer<Pressed>>,
+    mut seeds_event: EventWriter<SeedsPlaced>,
     mut commands: Commands,
     mut inventory: ResMut<Inventory>,
     diggables: Query<Entity, With<Diggable>>,
@@ -199,8 +217,7 @@ pub fn remove_on_click(
     match inventory.as_mut() {
         Inventory::Shovel(counter) => {
             if let Ok(digged) = diggables.get(trigger.target()) {
-                // trigger.event().pointer_location can be used for particles etc.
-                println!("Target at {:?}", trigger.event().hit.position.unwrap());
+                // println!("Target at {:?}", trigger.event().hit.position.unwrap());
                 commands.entity(digged).insert(RemoveTimer::new());
                 *counter -= 1;
                 for (_, _, _, mut on_hand) in collectables.iter_mut() {
@@ -236,6 +253,22 @@ pub fn remove_on_click(
                 }
             }
         }
+        Inventory::Seeds(counter) => {
+            if let Ok(_) = diggables.get(trigger.target()) {
+                if let Some(hit_position) = trigger.event().hit.position {
+                    seeds_event.write(SeedsPlaced { hit_position });
+                    *counter -= 1;
+                    for (_, _, _, mut on_hand) in collectables.iter_mut() {
+                        if on_hand.active {
+                            on_hand.timer.unpause();
+                            on_hand.timer.reset();
+                        }
+                    }
+                }
+
+                return;
+            }
+        }
         _ => (),
     }
     if let Ok((collected, mut transform, collectible, mut on_hand)) =
@@ -256,7 +289,7 @@ pub fn remove_on_click(
             Collectible::Shovel => Inventory::Shovel(7),
             Collectible::MiningPick => Inventory::MiningPick,
             Collectible::Food => Inventory::Food(1),
-            Collectible::Seeds => Inventory::Seeds,
+            Collectible::Seeds => Inventory::Seeds(1),
         };
         on_hand.active = true;
     }
@@ -277,30 +310,19 @@ fn manage_inventory(
     collectables: Query<(Entity, &mut Collectible, &OnHand)>,
 ) {
     if inventory.is_changed() {
-        match inventory.as_mut() {
-            Inventory::Shovel(counter) if (*counter <= 0) => {
-                for entity in collectables
-                    .iter()
-                    .filter(|(_, collect, _)| matches!(collect, Collectible::Shovel))
-                    .map(|(ent, _, _)| ent)
-                {
-                    commands.entity(entity).insert(RemoveTimer::new());
-                    *inventory = Inventory::None;
-                }
-            }
-            Inventory::Food(counter) if (*counter <= 0) => {
-                for entity in collectables
-                    .iter()
-                    .filter(|(_, collect, on_hand)| {
-                        matches!(collect, Collectible::Food) && on_hand.active
-                    })
-                    .map(|(ent, _, _)| ent)
-                {
-                    commands.entity(entity).insert(RemoveTimer::new());
-                    *inventory = Inventory::None;
-                }
-            }
-            _ => (),
+        let check_for = match inventory.as_mut() {
+            Inventory::Shovel(counter) if (*counter <= 0) => Collectible::Shovel,
+            Inventory::Food(counter) if (*counter <= 0) => Collectible::Food,
+            Inventory::Seeds(counter) if (*counter <= 0) => Collectible::Seeds,
+            _ => return,
+        };
+        for entity in collectables
+            .iter()
+            .filter(|(_, collect, _)| collect == &&check_for)
+            .map(|(ent, _, _)| ent)
+        {
+            commands.entity(entity).insert(RemoveTimer::new());
+            *inventory = Inventory::None;
         }
     }
 }
@@ -353,7 +375,6 @@ fn add_collectibles(
                     .observe(remove_on_click);
             }
             "Seeds" => {
-                println!("added seeds");
                 commands
                     .entity(ent)
                     .insert(Collectible::Seeds)

@@ -5,7 +5,7 @@ use std::ops::Deref;
 use bevy::{prelude::*, render::view::VisibilitySystems};
 
 use crate::config::{MAX_CROP_BOUNDS, MIN_CROP_BOUNDS};
-use crate::digging::{Life, Minable, remove_on_click};
+use crate::digging::{Life, Minable, SeedsPlaced, remove_on_click};
 use crate::player_movement::{Collider, Player};
 use fastrand::Rng;
 use smallvec;
@@ -14,13 +14,16 @@ pub struct DodgyPlugin;
 
 impl Plugin for DodgyPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (animate_dodge, animate_arch))
-            .add_systems(
-                PostUpdate,
-                activate_dodge.after(VisibilitySystems::CheckVisibility),
-            )
-            .init_resource::<GaussianNoise>()
-            .add_observer(spawn_banana_on_bananite_depletion);
+        app.add_systems(
+            Update,
+            (animate_dodge, animate_arch, plant_bananite_on_seeds),
+        )
+        .add_systems(
+            PostUpdate,
+            activate_dodge.after(VisibilitySystems::CheckVisibility),
+        )
+        .init_resource::<GaussianNoise>()
+        .add_observer(spawn_banana_on_bananite_depletion);
 
         if cfg!(debug_assertions) {
             app.add_systems(Startup, spawn_bananite);
@@ -175,16 +178,52 @@ fn animate_arch(time: Res<Time>, mut dodgers: Populated<(&mut Transform, &mut Ar
     }
 }
 
-fn spawn_bananite(mut commands: Commands, asset_server: Res<AssetServer>) {
-    for (x, y) in [(20.0, -2.0), (20.0, -5.0), (25.0, -5.0), (25.0, -2.0)] {
-        let init_trans = Vec3::new(x, -5.0, y);
-        let last_trans = Vec3::new(x, -0.2, y);
+fn spawn_bananite(
+    mut commands: Commands,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    asset_server: Res<AssetServer>,
+) {
+    if keyboard_input.pressed(KeyCode::Digit7) {
+        for (x, y) in [(20.0, -2.0), (20.0, -5.0), (25.0, -5.0), (25.0, -2.0)] {
+            let init_trans = Vec3::new(x, -5.0, y);
+            let last_trans = Vec3::new(x, -0.2, y);
+            commands
+                .spawn((
+                    Dodgy {
+                        init_pos: init_trans,
+                        last_pos: last_trans,
+                        timer: Timer::from_seconds(2.5, TimerMode::Once),
+                        go_back: false,
+                    },
+                    Transform::from_translation(init_trans),
+                    Minable {},
+                    Collider::from_translation(last_trans, Vec3::new(1.0, 4.0, 1.0)),
+                    Life { left: 3 },
+                    SceneRoot(
+                        asset_server
+                            .load(GltfAssetLabel::Scene(0).from_asset("bananite.gltf#bananite")),
+                    ),
+                ))
+                .observe(remove_on_click);
+        }
+    }
+}
+
+fn plant_bananite_on_seeds(
+    mut commands: Commands,
+    mut seeds_event: EventReader<SeedsPlaced>,
+    asset_server: Res<AssetServer>,
+) {
+    for ev in seeds_event.read() {
+        let Vec3 { x, y: _, z } = ev.hit_position;
+        let init_trans = Vec3::new(x, -5.0, z);
+        let last_trans = Vec3::new(x, -0.2, z);
         commands
             .spawn((
                 Dodgy {
                     init_pos: init_trans,
                     last_pos: last_trans,
-                    timer: Timer::from_seconds(2.5, TimerMode::Once),
+                    timer: Timer::from_seconds(3.0, TimerMode::Once),
                     go_back: false,
                 },
                 Transform::from_translation(init_trans),
