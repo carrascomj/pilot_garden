@@ -4,7 +4,7 @@ use std::ops::Deref;
 
 use bevy::{prelude::*, render::view::VisibilitySystems};
 
-use crate::digging::{Minable, remove_on_click};
+use crate::digging::{Life, Minable, remove_on_click};
 use crate::player_movement::{Collider, Player};
 
 pub struct DodgyPlugin;
@@ -34,7 +34,7 @@ struct Dodgy {
 
 fn point_in_view(camera: &Camera, cam_tf: &GlobalTransform, world_pos: Vec3) -> bool {
     if let Some(ndc) = camera.world_to_ndc(cam_tf, world_pos) {
-        ndc.x.abs() <= 2.0 && ndc.y.abs() <= 2.0 && ndc.z >= 0.0 && ndc.z <= 2.0
+        ndc.x.abs() <= 1.0 && ndc.y.abs() <= 10.0 && ndc.z >= 0.0 && ndc.z <= 1.0
     } else {
         false // world_to_ndc returns None when the point is behind the camera
     }
@@ -85,6 +85,7 @@ fn spawn_bananon(mut commands: Commands, asset_server: Res<AssetServer>) {
             Transform::from_translation(init_trans),
             Minable {},
             Collider::from_translation(last_trans, Vec3::new(1.0, 4.0, 1.0)),
+            Life { left: 3 },
             SceneRoot(
                 asset_server.load(GltfAssetLabel::Scene(0).from_asset("banana.gltf#bananon")),
             ),

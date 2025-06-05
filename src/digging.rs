@@ -45,6 +45,7 @@ impl Plugin for DiggingPlugin {
                     manage_inventory,
                     animate_interaction,
                     tick_on_hand_active,
+                    remove_when_life_depleted,
                 ),
             )
             .add_systems(
@@ -70,6 +71,10 @@ pub struct Diggable;
 /// Can be removed with the Mining Pick.
 #[derive(Component)]
 pub struct Minable;
+#[derive(Component)]
+pub struct Life {
+    pub left: u8,
+}
 /// Can be taken (shovel, mining pick, food)
 #[derive(Component)]
 pub enum Collectible {
@@ -187,7 +192,7 @@ pub fn remove_on_click(
     mut commands: Commands,
     mut inventory: ResMut<Inventory>,
     diggables: Query<Entity, With<Diggable>>,
-    minables: Query<Entity, With<Minable>>,
+    mut minables: Query<&mut Life, With<Minable>>,
     mut collectables: Query<(Entity, &mut Transform, &Collectible, &mut OnHand)>,
     player_query: Query<Entity, With<Player>>,
 ) {
@@ -207,9 +212,10 @@ pub fn remove_on_click(
             }
         }
         Inventory::MiningPick => {
-            if let Ok(mined) = minables.get(trigger.target()) {
+            if let Ok(mut mined_life) = minables.get_mut(trigger.target()) {
                 // trigger.event().pointer_location can be used for particles etc.
-                commands.entity(mined).insert(RemoveTimer::new());
+                mined_life.left -= 1;
+
                 for (_, _, _, mut on_hand) in collectables.iter_mut() {
                     if on_hand.active {
                         on_hand.timer.unpause();
@@ -319,7 +325,7 @@ fn add_collectibles(
                     .observe(remove_on_click);
             }
             "Food" => {
-                println!("added pick");
+                println!("added food");
                 commands
                     .entity(ent)
                     .insert(Collectible::Food)
@@ -327,7 +333,7 @@ fn add_collectibles(
                     .observe(remove_on_click);
             }
             "Seeds" => {
-                println!("added pick");
+                println!("added seeds");
                 commands
                     .entity(ent)
                     .insert(Collectible::Seeds)
@@ -405,6 +411,24 @@ struct RemoveTimer(Timer);
 impl RemoveTimer {
     fn new() -> Self {
         Self(Timer::from_seconds(0.8, TimerMode::Once))
+    }
+}
+
+/// Decrease in life (which can only be decreased) -> small scale decrease.
+///
+/// If life == 0, add a [`RemoveTimer`] that will play an animation and despawn
+/// the entity afterwards at [`remove_animation`].
+fn remove_when_life_depleted(
+    mut commands: Commands,
+    mut lifes: Query<(Entity, &mut Transform, &Life), Changed<Life>>,
+) {
+    for (entity, mut trans, life) in lifes.iter_mut() {
+        if life.left <= 0 {
+            commands.entity(entity).insert(RemoveTimer::new());
+        }
+        if life.left < 3 {
+            trans.scale *= 0.9;
+        }
     }
 }
 

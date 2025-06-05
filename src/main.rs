@@ -50,7 +50,7 @@ fn main() {
 
 /// Setup colliders. Since the setup is very simple, we set colliders manually;
 /// they only interact with the player; and they are independent from the 3D models.
-fn setup_colliders(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
+fn setup_colliders(mut commands: Commands) {
     for (half_x, half_z, x, z, mult_y, y) in [
         // walls around the garden
         (38.0, 2.0, 11.0, 10.0, 8.0, 1.0),
@@ -67,8 +67,7 @@ fn setup_colliders(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
         let cub = Cuboid::new(half_x, GROUND_Y * mult_y, half_z);
         let cub_transform = Transform::from_xyz(x, y, z);
         let cub_collider = Collider::from((&cub, &cub_transform));
-        let cub_mesh = meshes.add(cub);
-        commands.spawn((Mesh3d(cub_mesh), cub_transform, cub_collider));
+        commands.spawn((cub_transform, cub_collider));
     }
 }
 
