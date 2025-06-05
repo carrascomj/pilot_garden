@@ -15,7 +15,7 @@ use bevy::scene::SceneInstanceReady;
 pub enum Inventory {
     Shovel(usize),
     MiningPick,
-    Food,
+    Food(usize),
     Seeds,
     None,
 }
@@ -167,7 +167,7 @@ fn activate_gizmos(
         *inventory = Inventory::MiningPick;
     }
     if keyboard_input.just_pressed(KeyCode::Digit3) {
-        *inventory = Inventory::Food;
+        *inventory = Inventory::Food(1);
     }
     if keyboard_input.just_pressed(KeyCode::Digit0) {
         *inventory = Inventory::None;
@@ -226,8 +226,9 @@ pub fn remove_on_click(
                 return;
             }
         }
-        Inventory::Food => {
+        Inventory::Food(counter) => {
             // the picked entity does not matter, simply eat the banana.
+            *counter -= 1;
             for (_, _, _, mut on_hand) in collectables.iter_mut() {
                 if on_hand.active {
                     on_hand.timer.unpause();
@@ -254,7 +255,7 @@ pub fn remove_on_click(
         *inventory = match collectible {
             Collectible::Shovel => Inventory::Shovel(7),
             Collectible::MiningPick => Inventory::MiningPick,
-            Collectible::Food => Inventory::Food,
+            Collectible::Food => Inventory::Food(1),
             Collectible::Seeds => Inventory::Seeds,
         };
         on_hand.active = true;
@@ -273,17 +274,29 @@ fn tick_on_hand_active(time: Res<Time>, mut on_hand_query: Query<&mut OnHand>) {
 fn manage_inventory(
     mut commands: Commands,
     mut inventory: ResMut<Inventory>,
-    collectables: Query<(Entity, &mut Collectible)>,
+    collectables: Query<(Entity, &mut Collectible, &OnHand)>,
 ) {
     if inventory.is_changed() {
         match inventory.as_mut() {
             Inventory::Shovel(counter) if (*counter <= 0) => {
                 for entity in collectables
                     .iter()
-                    .filter(|(_, collect)| matches!(collect, Collectible::Shovel))
-                    .map(|(ent, _)| ent)
+                    .filter(|(_, collect, _)| matches!(collect, Collectible::Shovel))
+                    .map(|(ent, _, _)| ent)
                 {
-                    commands.entity(entity).despawn();
+                    commands.entity(entity).insert(RemoveTimer::new());
+                    *inventory = Inventory::None;
+                }
+            }
+            Inventory::Food(counter) if (*counter <= 0) => {
+                for entity in collectables
+                    .iter()
+                    .filter(|(_, collect, on_hand)| {
+                        matches!(collect, Collectible::Food) && on_hand.active
+                    })
+                    .map(|(ent, _, _)| ent)
+                {
+                    commands.entity(entity).insert(RemoveTimer::new());
                     *inventory = Inventory::None;
                 }
             }

@@ -171,15 +171,6 @@ fn animate_arch(time: Res<Time>, mut dodgers: Populated<(&mut Transform, &mut Ar
             arch.timer.tick(time.delta());
         } else if arch.timer.just_finished() {
             trans.translation = arch.last_pos;
-            println!(
-                "init = ({:.2}, {:.2}, {:.2}), last = ({:.2}, {:.2}, {:.2})",
-                arch.init_pos.x,
-                arch.init_pos.y,
-                arch.init_pos.z,
-                arch.last_pos.x,
-                arch.last_pos.y,
-                arch.last_pos.z,
-            );
         }
     }
 }
