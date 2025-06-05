@@ -1,5 +1,8 @@
-use bevy::prelude::*;
-use std::f32::consts::TAU;
+use bevy::{
+    prelude::*,
+    render::render_resource::{AsBindGroup, ShaderRef},
+};
+use std::f32::consts::{FRAC_2_PI, TAU};
 use std::time::Duration;
 
 mod config;
@@ -45,6 +48,7 @@ fn main() {
         .add_systems(Update, (trigger_main_bone_animation, animate_main_bone))
         // custom game mechanics
         .add_plugins((PlayerPlugin, DodgyPlugin, DiggingPlugin))
+        .add_plugins(MaterialPlugin::<CustomMaterial>::default())
         .run();
 }
 
@@ -71,8 +75,13 @@ fn setup_colliders(mut commands: Commands) {
     }
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // Spawn the first scene in `models/SimpleSkin/SimpleSkin.gltf`
+fn setup(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<CustomMaterial>>,
+) {
+    // spawn main scene with all bushes, crops, etc.
     commands.spawn(SceneRoot(
         asset_server.load(GltfAssetLabel::Scene(0).from_asset("bush.gltf")),
     ));
@@ -89,6 +98,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },
         Transform::from_xyz(10.0, 10.0, 8.0).looking_at(Vec3::X * 10.0, Vec3::NEG_Y),
+    ));
+    // spawn the capsule, which is generated with a material with a shader
+    const POS: Vec3 = Vec3::new(-6.0, 3.0, 8.0);
+    commands.spawn((
+        Mesh3d(meshes.add(Cylinder::new(1., 4.))),
+        MeshMaterial3d(materials.add(CustomMaterial {})),
+        Transform::from_translation(POS).with_rotation(Quat::from_rotation_y(3.14)),
+        Collider::from_translation(POS, Vec3::new(1.0, 3.0, 1.0)),
     ));
 }
 
@@ -164,5 +181,20 @@ fn animate_main_bone(mut bones: Query<(&mut Transform, &MainBone)>) {
 
             transform.rotation = bone.rest_rot * Quat::from_rotation_x(angle);
         }
+    }
+}
+
+#[derive(Asset, TypePath, AsBindGroup, Clone)]
+struct CustomMaterial {}
+
+const SHADER: &str = "shaders/custom_material.wgsl";
+
+impl Material for CustomMaterial {
+    fn fragment_shader() -> ShaderRef {
+        SHADER.into()
+    }
+
+    fn alpha_mode(&self) -> AlphaMode {
+        AlphaMode::Blend
     }
 }
