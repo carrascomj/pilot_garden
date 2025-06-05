@@ -4,20 +4,57 @@ use std::ops::Deref;
 
 use bevy::{prelude::*, render::view::VisibilitySystems};
 
+use crate::config::{MAX_CROP_BOUNDS, MIN_CROP_BOUNDS};
 use crate::digging::{Life, Minable, remove_on_click};
 use crate::player_movement::{Collider, Player};
+use fastrand::Rng;
+use smallvec;
 
 pub struct DodgyPlugin;
 
 impl Plugin for DodgyPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (animate_dodge,)).add_systems(
-            PostUpdate,
-            activate_dodge.after(VisibilitySystems::CheckVisibility),
-        );
+        app.add_systems(Update, (animate_dodge, animate_arch))
+            .add_systems(
+                PostUpdate,
+                activate_dodge.after(VisibilitySystems::CheckVisibility),
+            )
+            .init_resource::<GaussianNoise>()
+            .add_observer(spawn_banana_on_bananite_depletion);
 
         if cfg!(debug_assertions) {
-            app.add_systems(Startup, spawn_bananon);
+            app.add_systems(Startup, spawn_bananite);
+        }
+    }
+}
+
+#[derive(Resource)]
+struct GaussianNoise {
+    rng: Rng,
+}
+
+impl Default for GaussianNoise {
+    fn default() -> Self {
+        Self {
+            rng: fastrand::Rng::new(),
+        }
+    }
+}
+
+impl GaussianNoise {
+    /// Marsaglia’s polar method for standard normal.
+    fn sample(&mut self) -> f32 {
+        loop {
+            // fastrand::f64() gives you a uniform [0, 1) double
+            let u1 = 2.0 * self.rng.f32() - 1.0; // uniform (-1,1)
+            let u2 = 2.0 * self.rng.f32() - 1.0; // uniform (-1,1)
+            let s = u1 * u1 + u2 * u2;
+            if s == 0.0 || s >= 1.0 {
+                continue;
+            }
+            // Only one ln/sqrt per accepted point:
+            let factor = (-2.0 * s.ln() / s).sqrt();
+            return u1 * factor; // one N(0,1)
         }
     }
 }
@@ -71,24 +108,103 @@ fn animate_dodge(mut dodgers: Query<(&mut Transform, &Dodgy)>) {
     }
 }
 
-fn spawn_bananon(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let init_trans = Vec3::new(20.0, -5.0, -5.0);
-    let last_trans = Vec3::new(20.0, -0.2, -5.0);
-    commands
-        .spawn((
-            Dodgy {
-                init_pos: init_trans,
-                last_pos: last_trans,
-                timer: Timer::from_seconds(2.5, TimerMode::Once),
-                go_back: false,
-            },
-            Transform::from_translation(init_trans),
-            Minable {},
-            Collider::from_translation(last_trans, Vec3::new(1.0, 4.0, 1.0)),
-            Life { left: 3 },
-            SceneRoot(
-                asset_server.load(GltfAssetLabel::Scene(0).from_asset("banana.gltf#bananon")),
-            ),
-        ))
-        .observe(remove_on_click);
+/// Marks an entity to have an arch animation on spawn.
+/// Animation at [`animate_arch`].
+#[derive(Component)]
+struct ArchAnimation {
+    timer: Timer,
+    init_pos: Vec3,
+    last_pos: Vec3,
+}
+
+/// Spawn some bananas once a bananite is depleted.
+///
+/// (A bananite is a banana ore.)
+fn spawn_banana_on_bananite_depletion(
+    trigger: Trigger<OnRemove, Minable>,
+    asset_server: Res<AssetServer>,
+    mut gaussian: ResMut<GaussianNoise>,
+    mut commands: Commands,
+    bananite_query: Query<&Transform>,
+) {
+    let entity = trigger.target();
+    if let Ok(trans) = bananite_query.get(entity) {
+        let mut init_pos = trans.translation;
+        init_pos.y = 0.3;
+        const MAX_BANANAS: usize = 4;
+        let bananas = (0..gaussian.rng.u8(3..(MAX_BANANAS as u8)))
+            .map(|_| {
+                let x_offset = gaussian.sample() * 2.0;
+                let z_offset = gaussian.sample() * 2.0;
+                let last_pos = (trans.translation + Vec3::new(x_offset, init_pos.y, z_offset))
+                    .clamp(MIN_CROP_BOUNDS, MAX_CROP_BOUNDS);
+                let timer = Timer::from_seconds(0.5, TimerMode::Once);
+                (
+                    Transform::from_translation(init_pos),
+                    ArchAnimation {
+                        timer,
+                        init_pos,
+                        last_pos,
+                    },
+                    SceneRoot(
+                        asset_server.load(GltfAssetLabel::Scene(0).from_asset("banana.gltf")),
+                    ),
+                )
+            })
+            .collect::<smallvec::SmallVec<[_; MAX_BANANAS]>>();
+        commands.spawn_batch(bananas);
+    }
+}
+
+fn arch_bezier(from: f32, to: f32, peak: f32, u: f32) -> f32 {
+    let one_minus_u = 1.0 - u;
+    one_minus_u * one_minus_u * from + 2.0 * one_minus_u * u * peak + u * u * to
+}
+
+fn animate_arch(time: Res<Time>, mut dodgers: Populated<(&mut Transform, &mut ArchAnimation)>) {
+    for (mut trans, mut arch) in dodgers.iter_mut() {
+        if !arch.timer.finished() && !arch.timer.paused() {
+            let u = arch.timer.fraction();
+            let mut next_translation = u * arch.last_pos + (1. - u) * arch.init_pos;
+            next_translation.y = arch_bezier(arch.init_pos.y, arch.last_pos.y, 5.0, u);
+            trans.translation = next_translation;
+            arch.timer.tick(time.delta());
+        } else if arch.timer.just_finished() {
+            trans.translation = arch.last_pos;
+            println!(
+                "init = ({:.2}, {:.2}, {:.2}), last = ({:.2}, {:.2}, {:.2})",
+                arch.init_pos.x,
+                arch.init_pos.y,
+                arch.init_pos.z,
+                arch.last_pos.x,
+                arch.last_pos.y,
+                arch.last_pos.z,
+            );
+        }
+    }
+}
+
+fn spawn_bananite(mut commands: Commands, asset_server: Res<AssetServer>) {
+    for (x, y) in [(20.0, -2.0), (20.0, -5.0), (25.0, -5.0), (25.0, -2.0)] {
+        let init_trans = Vec3::new(x, -5.0, y);
+        let last_trans = Vec3::new(x, -0.2, y);
+        commands
+            .spawn((
+                Dodgy {
+                    init_pos: init_trans,
+                    last_pos: last_trans,
+                    timer: Timer::from_seconds(2.5, TimerMode::Once),
+                    go_back: false,
+                },
+                Transform::from_translation(init_trans),
+                Minable {},
+                Collider::from_translation(last_trans, Vec3::new(1.0, 4.0, 1.0)),
+                Life { left: 3 },
+                SceneRoot(
+                    asset_server
+                        .load(GltfAssetLabel::Scene(0).from_asset("bananite.gltf#bananite")),
+                ),
+            ))
+            .observe(remove_on_click);
+    }
 }

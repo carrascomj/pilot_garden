@@ -103,7 +103,9 @@ name = "and_you_will_be_happy"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "fastrand",
  "log",
+ "smallvec",
 ]
 
 [[package]]

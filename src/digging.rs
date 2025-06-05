@@ -200,6 +200,7 @@ pub fn remove_on_click(
         Inventory::Shovel(counter) => {
             if let Ok(digged) = diggables.get(trigger.target()) {
                 // trigger.event().pointer_location can be used for particles etc.
+                println!("Target at {:?}", trigger.event().hit.position.unwrap());
                 commands.entity(digged).insert(RemoveTimer::new());
                 *counter -= 1;
                 for (_, _, _, mut on_hand) in collectables.iter_mut() {
@@ -223,6 +224,15 @@ pub fn remove_on_click(
                     }
                 }
                 return;
+            }
+        }
+        Inventory::Food => {
+            // the picked entity does not matter, simply eat the banana.
+            for (_, _, _, mut on_hand) in collectables.iter_mut() {
+                if on_hand.active {
+                    on_hand.timer.unpause();
+                    on_hand.timer.reset();
+                }
             }
         }
         _ => (),
@@ -309,7 +319,6 @@ fn add_collectibles(
     for (ent, name) in meshes.iter() {
         match name.as_str() {
             "Shovel" => {
-                println!("added shovel");
                 commands
                     .entity(ent)
                     .insert(Collectible::Shovel)
@@ -317,7 +326,6 @@ fn add_collectibles(
                     .observe(remove_on_click);
             }
             "MiningPick" => {
-                println!("added pick");
                 commands
                     .entity(ent)
                     .insert(Collectible::MiningPick)
@@ -325,7 +333,6 @@ fn add_collectibles(
                     .observe(remove_on_click);
             }
             "Food" => {
-                println!("added food");
                 commands
                     .entity(ent)
                     .insert(Collectible::Food)

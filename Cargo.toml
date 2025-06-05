@@ -27,4 +27,6 @@ edition = "2024"
 
 [dependencies]
 bevy = { version = "0.16.1", features = ["dynamic_linking", "file_watcher"] }
+fastrand = "=2.3.0"
 log = { version = "*", features = ["max_level_debug", "release_max_level_warn"] }
+smallvec = "=1.15.0"

@@ -17,3 +17,6 @@ pub const PLAYER_HALF_EXTENTS: Vec3 = Vec3::new(0.4, GROUND_Y, 0.4);
 /// )
 /// ```
 pub const REST_ROT: Quat = Quat::from_xyzw(-0.20896433, -0.6755249, -0.035340607, 0.7062231);
+/// Bounds to limit the spawning on things in the crop ground.
+pub const MIN_CROP_BOUNDS: Vec3 = Vec3::new(18.6, -20.0, -8.5);
+pub const MAX_CROP_BOUNDS: Vec3 = Vec3::new(29.5, 20.0, 0.);
