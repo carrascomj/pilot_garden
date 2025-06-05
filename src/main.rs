@@ -7,7 +7,7 @@ mod digging;
 mod dodgy;
 mod player_movement;
 
-use digging::DiggingPlugin;
+use digging::{DiggingPlugin, Life, Minable, remove_on_click};
 use dodgy::DodgyPlugin;
 use player_movement::{Collider, Player, PlayerPlugin};
 
@@ -115,6 +115,12 @@ fn find_main_bone(
                 rest_rot: transform.rotation,
                 active: true,
             });
+        } else if name.as_str() == "fakebush" {
+            // fake bushes can be removed with the mining pick
+            commands
+                .entity(entity)
+                .insert((Minable {}, Life { left: 1 }))
+                .observe(remove_on_click);
         }
     }
 }
