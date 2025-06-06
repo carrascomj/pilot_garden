@@ -22,7 +22,7 @@ impl Plugin for GameMenu {
             // will run even after GameState menu since it has to play the animation for awakening
             .add_systems(Last, update_time)
             .add_systems(OnExit(GameState::Menu), eyes_wide_open)
-            .add_plugins(UiMaterialPlugin::<CustomUiMaterial>::default());
+            .add_plugins(UiMaterialPlugin::<HibernationMaterial>::default());
     }
 }
 
@@ -40,7 +40,7 @@ struct StartMenu;
 fn spawn_game_menu(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut ui_materials: ResMut<Assets<CustomUiMaterial>>,
+    mut ui_materials: ResMut<Assets<HibernationMaterial>>,
 ) {
     commands.spawn((
         StartMenu,
@@ -56,7 +56,7 @@ fn spawn_game_menu(
             ..default()
         },
         BackgroundColor(Color::BLACK), // fog colour
-        MaterialNode(ui_materials.add(CustomUiMaterial {
+        MaterialNode(ui_materials.add(HibernationMaterial {
             time: 0.0,
             disolve_time: -1.0,
         })),
@@ -148,7 +148,7 @@ fn spawn_game_menu(
 fn update_time(
     mut commands: Commands,
     time: Res<Time>,
-    mut ui_materials: ResMut<Assets<CustomUiMaterial>>,
+    mut ui_materials: ResMut<Assets<HibernationMaterial>>,
     mut state_menu: Single<(Entity, &mut BackgroundColor), With<StartMenu>>,
     mut player: Single<&mut Velocity, With<Player>>,
 ) {
@@ -171,16 +171,16 @@ fn update_time(
 }
 
 #[derive(AsBindGroup, Asset, TypePath, Debug, Clone)]
-struct CustomUiMaterial {
+struct HibernationMaterial {
     #[uniform(0)]
     time: f32,
     #[uniform(1)]
     disolve_time: f32,
 }
 
-const SHADER_PATH: &str = "shaders/custom_sprite_material.wgsl";
+const SHADER_PATH: &str = "shaders/hibernation_eyes_fog_ui.wgsl";
 
-impl UiMaterial for CustomUiMaterial {
+impl UiMaterial for HibernationMaterial {
     fn fragment_shader() -> ShaderRef {
         SHADER_PATH.into()
     }
@@ -188,7 +188,6 @@ impl UiMaterial for CustomUiMaterial {
 
 fn button_system(
     mut next_state: ResMut<NextState<GameState>>,
-    mut ui_materials: ResMut<Assets<CustomUiMaterial>>,
     mut interaction_query: Query<
         (
             &Interaction,
@@ -232,9 +231,8 @@ fn button_system(
 
 /// Change disolve time, which is a uniform that will make the
 /// shade "open the eyes" and increase the opacity of the overlay.
-fn eyes_wide_open(mut ui_materials: ResMut<Assets<CustomUiMaterial>>) {
+fn eyes_wide_open(mut ui_materials: ResMut<Assets<HibernationMaterial>>) {
     for (_, material) in ui_materials.iter_mut() {
-        println!("Time at opening -> {}", material.time);
         material.disolve_time = material.time;
     }
 }

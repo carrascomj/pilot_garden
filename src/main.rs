@@ -58,7 +58,7 @@ fn main() {
         )
         // custom game mechanics
         .add_plugins((PlayerPlugin, DodgyPlugin, DiggingPlugin, GameMenu))
-        .add_plugins(MaterialPlugin::<CustomMaterial>::default())
+        .add_plugins(MaterialPlugin::<CapsuleMaterial>::default())
         .run();
 }
 
@@ -89,7 +89,7 @@ fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<CustomMaterial>>,
+    mut materials: ResMut<Assets<CapsuleMaterial>>,
 ) {
     // spawn main scene with all bushes, crops, etc.
     commands.spawn(SceneRoot(
@@ -113,7 +113,7 @@ fn setup(
     const POS: Vec3 = Vec3::new(-6.0, 3.0, 8.0);
     commands.spawn((
         Mesh3d(meshes.add(Cylinder::new(1., 4.))),
-        MeshMaterial3d(materials.add(CustomMaterial {})),
+        MeshMaterial3d(materials.add(CapsuleMaterial {})),
         Transform::from_translation(POS).with_rotation(Quat::from_rotation_y(3.14)),
         Collider::from_translation(POS, Vec3::new(1.0, 3.0, 1.0)),
     ));
@@ -195,11 +195,11 @@ fn animate_main_bone(mut bones: Query<(&mut Transform, &MainBone)>) {
 }
 
 #[derive(Asset, TypePath, AsBindGroup, Clone)]
-struct CustomMaterial {}
+struct CapsuleMaterial {}
 
-const SHADER: &str = "shaders/custom_material.wgsl";
+const SHADER: &str = "shaders/capsule_fog.wgsl";
 
-impl Material for CustomMaterial {
+impl Material for CapsuleMaterial {
     fn fragment_shader() -> ShaderRef {
         SHADER.into()
     }
