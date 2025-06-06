@@ -215,11 +215,11 @@ fn plant_bananite_on_seeds(
     asset_server: Res<AssetServer>,
 ) {
     for ev in seeds_event.read() {
-        let Vec3 { x, y: _, z } = ev
+        let Vec3 { x, y, z } = ev
             .hit_position
-            .clamp(MIN_CROP_BOUNDS + 0.5, MAX_CROP_BOUNDS - 0.5);
-        let init_trans = Vec3::new(x, -5.0, z);
-        let last_trans = Vec3::new(x, -0.2, z);
+            .clamp(MIN_CROP_BOUNDS + 1.5, MAX_CROP_BOUNDS - 1.5);
+        let init_trans = Vec3::new(x, y - 5.0, z);
+        let last_trans = Vec3::new(x, y, z);
         commands
             .spawn((
                 Dodgy {
