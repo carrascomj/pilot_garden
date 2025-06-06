@@ -3,7 +3,7 @@
 use std::f32::consts::PI;
 use std::time::Duration;
 
-use crate::config::REST_ROT;
+use crate::config::{GameState, REST_ROT};
 use crate::player_movement::{Collider, Player};
 use bevy::color::palettes::tailwind::{PINK_100, RED_500};
 use bevy::picking::pointer::PointerInteraction;
@@ -47,14 +47,21 @@ impl Plugin for DiggingPlugin {
                     animate_interaction,
                     tick_on_hand_active,
                     remove_when_life_depleted,
-                ),
+                )
+                    .run_if(in_state(GameState::Above)),
+            )
+            // tools animation might be playing while in Below already
+            .add_systems(
+                Update,
+                (manage_inventory, remove_animation).run_if(not(in_state(GameState::Menu))),
             )
             .add_systems(
                 PostUpdate,
                 (
                     add_colliders_to_diggables.after(TransformSystem::TransformPropagate),
                     remove_animation,
-                ),
+                )
+                    .run_if(in_state(GameState::Above)),
             );
         if cfg!(debug_assertions) {
             app.add_systems(Update, (activate_gizmos, draw_collider_gizmos));

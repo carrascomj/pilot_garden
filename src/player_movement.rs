@@ -1,4 +1,4 @@
-use crate::config::{CAMERA_SENSITIVITY, GRAVITY, PLAYER_HALF_EXTENTS, SPEED};
+use crate::config::{CAMERA_SENSITIVITY, GRAVITY, GameState, PLAYER_HALF_EXTENTS, SPEED};
 use bevy::{input::mouse::AccumulatedMouseMotion, prelude::*};
 use std::f32::consts::{FRAC_PI_2, PI};
 
@@ -9,10 +9,13 @@ pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, spawn_player).add_systems(
-            Update,
-            (move_player, advance_physics, interpolate_rendered_transform),
-        );
+        app.add_systems(Startup, spawn_player)
+            .add_systems(Update, move_player)
+            .add_systems(
+                Update,
+                (advance_physics, interpolate_rendered_transform)
+                    .run_if(not(in_state(GameState::Menu))),
+            );
     }
 }
 

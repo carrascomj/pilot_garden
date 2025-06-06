@@ -2,7 +2,7 @@ use bevy::{
     prelude::*,
     render::render_resource::{AsBindGroup, ShaderRef},
 };
-use std::f32::consts::{FRAC_2_PI, TAU};
+use std::f32::consts::TAU;
 use std::time::Duration;
 
 mod config;
@@ -14,7 +14,7 @@ use digging::{DiggingPlugin, Life, Minable, remove_on_click};
 use dodgy::DodgyPlugin;
 use player_movement::{Collider, Player, PlayerPlugin};
 
-use config::{BUMP_DISTANCE, GROUND_Y};
+use config::{BUMP_DISTANCE, GROUND_Y, GameState};
 
 fn main() {
     App::new()
@@ -39,13 +39,21 @@ fn main() {
             }),
             ..default()
         }),))
+        .init_state::<GameState>()
         .insert_resource(AmbientLight {
             brightness: 300.0,
             ..default()
         })
         .add_systems(Startup, (setup, setup_colliders))
-        .add_systems(PostUpdate, find_main_bone)
-        .add_systems(Update, (trigger_main_bone_animation, animate_main_bone))
+        .add_systems(
+            Update,
+            (
+                find_main_bone,
+                trigger_main_bone_animation,
+                animate_main_bone,
+            )
+                .run_if(not(in_state(GameState::Menu))),
+        )
         // custom game mechanics
         .add_plugins((PlayerPlugin, DodgyPlugin, DiggingPlugin))
         .add_plugins(MaterialPlugin::<CustomMaterial>::default())
@@ -80,6 +88,7 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<CustomMaterial>>,
+    mut next_state: ResMut<NextState<GameState>>,
 ) {
     // spawn main scene with all bushes, crops, etc.
     commands.spawn(SceneRoot(

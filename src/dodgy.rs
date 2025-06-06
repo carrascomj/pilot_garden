@@ -4,7 +4,7 @@ use std::ops::Deref;
 
 use bevy::{prelude::*, render::view::VisibilitySystems};
 
-use crate::config::{MAX_CROP_BOUNDS, MIN_CROP_BOUNDS};
+use crate::config::{GameState, MAX_CROP_BOUNDS, MIN_CROP_BOUNDS};
 use crate::digging::{Life, Minable, SeedsPlaced, remove_on_click};
 use crate::player_movement::{Collider, Player};
 use fastrand::Rng;
@@ -16,11 +16,14 @@ impl Plugin for DodgyPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Update,
-            (animate_dodge, animate_arch, plant_bananite_on_seeds),
+            (animate_dodge, animate_arch, plant_bananite_on_seeds)
+                .run_if(in_state(GameState::Above)),
         )
         .add_systems(
             PostUpdate,
-            activate_dodge.after(VisibilitySystems::CheckVisibility),
+            activate_dodge
+                .after(VisibilitySystems::CheckVisibility)
+                .run_if(in_state(GameState::Above)),
         )
         .init_resource::<GaussianNoise>()
         .add_observer(spawn_banana_on_bananite_depletion);
