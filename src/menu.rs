@@ -1,6 +1,7 @@
 use bevy::{
     prelude::*,
     render::render_resource::{AsBindGroup, ShaderRef},
+    window::CursorOptions,
 };
 
 use crate::{
@@ -199,6 +200,7 @@ fn button_system(
         (Changed<Interaction>, With<Button>),
     >,
     mut text_query: Query<&mut TextColor>,
+    mut window: Single<&mut Window>,
 ) {
     for (interaction, mut box_shadow, mut border_color, children, action) in &mut interaction_query
     {
@@ -211,6 +213,11 @@ fn button_system(
                 match action {
                     ButtonAction::StartGame => {
                         next_state.set(GameState::Above);
+                        window.cursor_options = CursorOptions {
+                            visible: false,
+                            grab_mode: bevy::window::CursorGrabMode::Locked,
+                            ..default()
+                        };
                     }
                     _ => (),
                 }

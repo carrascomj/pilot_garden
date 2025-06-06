@@ -32,11 +32,6 @@ fn main() {
                     maximize: false,
                     ..Default::default()
                 },
-                // cursor_options: bevy::window::CursorOptions {
-                //     visible: false,
-                //     grab_mode: bevy::window::CursorGrabMode::Locked,
-                //     ..default()
-                // },
                 ..default()
             }),
             ..default()
@@ -111,12 +106,33 @@ fn setup(
     ));
     // spawn the capsule, which is generated with a material with a shader
     const POS: Vec3 = Vec3::new(-6.0, 3.0, 8.0);
-    commands.spawn((
-        Mesh3d(meshes.add(Cylinder::new(1., 4.))),
-        MeshMaterial3d(materials.add(CapsuleMaterial {})),
-        Transform::from_translation(POS).with_rotation(Quat::from_rotation_y(3.14)),
-        Collider::from_translation(POS, Vec3::new(1.0, 3.0, 1.0)),
-    ));
+    commands
+        .spawn((
+            Mesh3d(meshes.add(Cylinder::new(1., 4.))),
+            MeshMaterial3d(materials.add(CapsuleMaterial {})),
+            Transform::from_translation(POS).with_rotation(Quat::from_rotation_y(3.14)),
+            Collider::from_translation(POS, Vec3::new(1.0, 3.0, 1.0)),
+            Capsule { active: true },
+        ))
+        .observe(menu_on_click);
+}
+
+/// Marker for the capsule so we can check if we clicked it
+/// and activate the menu again.
+#[derive(Component)]
+pub struct Capsule {
+    pub active: bool,
+}
+
+/// This needs more polish, with an animation or something.
+fn menu_on_click(
+    _trigger: Trigger<Pointer<Pressed>>,
+    mut next_state: ResMut<NextState<GameState>>,
+    capsule: Single<&Capsule>,
+) {
+    if capsule.active {
+        next_state.set(GameState::Menu);
+    }
 }
 
 /// The player may bump with objects. If they have a "main" bone, this will cause a
