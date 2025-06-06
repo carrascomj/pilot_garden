@@ -2,12 +2,14 @@ use bevy::{
     prelude::*,
     render::render_resource::{AsBindGroup, ShaderRef},
 };
+use menu::GameMenu;
 use std::f32::consts::TAU;
 use std::time::Duration;
 
 mod config;
 mod digging;
 mod dodgy;
+mod menu;
 mod player_movement;
 
 use digging::{DiggingPlugin, Life, Minable, remove_on_click};
@@ -30,11 +32,11 @@ fn main() {
                     maximize: false,
                     ..Default::default()
                 },
-                cursor_options: bevy::window::CursorOptions {
-                    visible: false,
-                    grab_mode: bevy::window::CursorGrabMode::Locked,
-                    ..default()
-                },
+                // cursor_options: bevy::window::CursorOptions {
+                //     visible: false,
+                //     grab_mode: bevy::window::CursorGrabMode::Locked,
+                //     ..default()
+                // },
                 ..default()
             }),
             ..default()
@@ -55,7 +57,7 @@ fn main() {
                 .run_if(not(in_state(GameState::Menu))),
         )
         // custom game mechanics
-        .add_plugins((PlayerPlugin, DodgyPlugin, DiggingPlugin))
+        .add_plugins((PlayerPlugin, DodgyPlugin, DiggingPlugin, GameMenu))
         .add_plugins(MaterialPlugin::<CustomMaterial>::default())
         .run();
 }
@@ -88,7 +90,6 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<CustomMaterial>>,
-    mut next_state: ResMut<NextState<GameState>>,
 ) {
     // spawn main scene with all bushes, crops, etc.
     commands.spawn(SceneRoot(

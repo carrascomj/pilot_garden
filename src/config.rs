@@ -22,10 +22,11 @@ pub const MIN_CROP_BOUNDS: Vec3 = Vec3::new(18.6, -20.0, -8.5);
 pub const MAX_CROP_BOUNDS: Vec3 = Vec3::new(29.5, 20.0, 0.);
 
 #[derive(States, Debug, Hash, PartialEq, Eq, Clone, Default)]
+#[states(scoped_entities)]
 pub enum GameState {
+    #[default]
     Menu,
     GameOver,
-    #[default]
     Above,
     Below,
 }

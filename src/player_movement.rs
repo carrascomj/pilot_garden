@@ -10,12 +10,8 @@ pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, spawn_player)
-            .add_systems(Update, move_player)
-            .add_systems(
-                Update,
-                (advance_physics, interpolate_rendered_transform)
-                    .run_if(not(in_state(GameState::Menu))),
-            );
+            .add_systems(Update, (advance_physics, interpolate_rendered_transform))
+            .add_systems(Update, move_player.run_if(not(in_state(GameState::Menu))));
     }
 }
 
@@ -26,7 +22,7 @@ struct AccumulatedInput(Vec3);
 
 /// A vector representing the player's velocity in the physics simulation.
 #[derive(Debug, Component, Clone, Copy, PartialEq, Default, Deref, DerefMut)]
-struct Velocity(Vec3);
+pub struct Velocity(pub Vec3);
 
 /// The actual position of the player in the physics simulation.
 /// This is separate from the `Transform`, which is merely a visual representation.
@@ -42,9 +38,9 @@ struct PhysicalTranslation(Vec3);
 #[derive(Debug, Component, Clone, Copy, PartialEq, Default, Deref, DerefMut)]
 struct PreviousPhysicalTranslation(Vec3);
 
+/// Create the player with the camera (FPS-like)
 fn spawn_player(mut commands: Commands) {
-    // Create the player with the camera (FPS-like)
-    let start_pos = Vec3::new(-2.0, 10.0, 4.0);
+    let start_pos = Vec3::new(-2.0, 6.0, 8.0);
     commands.spawn((
         Camera3d::default(),
         Projection::Perspective(PerspectiveProjection {
