@@ -20,6 +20,7 @@ pub const REST_ROT: Quat = Quat::from_xyzw(-0.20896433, -0.6755249, -0.035340607
 /// Bounds to limit the spawning on things in the crop ground.
 pub const MIN_CROP_BOUNDS: Vec3 = Vec3::new(18.6, -20.0, -8.5);
 pub const MAX_CROP_BOUNDS: Vec3 = Vec3::new(29.5, 20.0, 0.);
+pub const START_POS: Vec3 = Vec3::new(-2.0, 6.0, 8.0);
 
 #[derive(States, Debug, Hash, PartialEq, Eq, Clone, Default)]
 #[states(scoped_entities)]

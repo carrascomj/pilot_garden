@@ -17,7 +17,7 @@ const HOVER_COLOR: Color = Color::srgb(1.0, 1.0, 1.0); // white blue
 
 impl Plugin for GameMenu {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, spawn_game_menu)
+        app.add_systems(OnEnter(GameState::Menu), spawn_game_menu)
             .add_systems(Update, button_system.run_if(in_state(GameState::Menu)))
             // will run even after GameState menu since it has to play the animation for awakening
             .add_systems(Last, update_time)

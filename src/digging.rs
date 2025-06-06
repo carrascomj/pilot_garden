@@ -171,6 +171,7 @@ fn activate_gizmos(
     mut inventory: ResMut<Inventory>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut config_store: ResMut<GizmoConfigStore>,
+    mut next_state: ResMut<NextState<GameState>>,
 ) {
     if keyboard_input.just_pressed(KeyCode::KeyU) {
         config_store.config_mut::<AabbGizmoConfigGroup>().1.draw_all ^= true;
@@ -190,6 +191,9 @@ fn activate_gizmos(
     }
     if keyboard_input.just_pressed(KeyCode::Digit0) {
         *inventory = Inventory::None;
+    }
+    if keyboard_input.just_pressed(KeyCode::KeyM) {
+        next_state.set(GameState::Menu);
     }
 }
 

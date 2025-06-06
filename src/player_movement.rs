@@ -1,4 +1,6 @@
-use crate::config::{CAMERA_SENSITIVITY, GRAVITY, GameState, PLAYER_HALF_EXTENTS, SPEED};
+use crate::config::{
+    CAMERA_SENSITIVITY, GRAVITY, GameState, PLAYER_HALF_EXTENTS, SPEED, START_POS,
+};
 use bevy::{input::mouse::AccumulatedMouseMotion, prelude::*};
 use std::f32::consts::{FRAC_PI_2, PI};
 
@@ -10,6 +12,7 @@ pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, spawn_player)
+            .add_systems(OnEnter(GameState::Menu), reset_player)
             .add_systems(Update, (advance_physics, interpolate_rendered_transform))
             .add_systems(Update, move_player.run_if(not(in_state(GameState::Menu))));
     }
@@ -40,7 +43,6 @@ struct PreviousPhysicalTranslation(Vec3);
 
 /// Create the player with the camera (FPS-like)
 fn spawn_player(mut commands: Commands) {
-    let start_pos = Vec3::new(-2.0, 6.0, 8.0);
     commands.spawn((
         Camera3d::default(),
         Projection::Perspective(PerspectiveProjection {
@@ -51,13 +53,31 @@ fn spawn_player(mut commands: Commands) {
             clear_color: ClearColorConfig::Custom(Color::srgb(0.25, 0.2, 0.5)),
             ..Default::default()
         },
-        Transform::from_translation(start_pos).looking_at(Vec3::new(0.0, 1.0, 0.0), Vec3::Y),
+        Transform::from_translation(START_POS).looking_at(Vec3::new(0.0, 1.0, 0.0), Vec3::Y),
         AccumulatedInput::default(),
         Velocity::default(),
-        PhysicalTranslation(start_pos),
-        PreviousPhysicalTranslation(start_pos),
+        PhysicalTranslation(START_POS),
+        PreviousPhysicalTranslation(START_POS),
         Player {},
     ));
+}
+
+fn reset_player(
+    mut player: Single<
+        (
+            &mut Transform,
+            &mut PhysicalTranslation,
+            &mut PreviousPhysicalTranslation,
+            &mut Velocity,
+        ),
+        With<Player>,
+    >,
+) {
+    *player.0 =
+        Transform::from_translation(START_POS).looking_at(Vec3::new(0.0, 1.0, 0.0), Vec3::Y);
+    player.1.0 = START_POS;
+    player.2.0 = START_POS;
+    player.3.0 = Vec3::new(0., 0., 0.);
 }
 
 /// Player movement system.
