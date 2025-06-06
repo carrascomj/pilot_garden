@@ -318,7 +318,7 @@ fn manage_inventory(
         };
         for entity in collectables
             .iter()
-            .filter(|(_, collect, _)| collect == &&check_for)
+            .filter(|(_, collect, on_hand)| (collect == &&check_for) && on_hand.active)
             .map(|(ent, _, _)| ent)
         {
             commands.entity(entity).insert(RemoveTimer::new());
