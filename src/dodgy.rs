@@ -127,7 +127,7 @@ struct ArchAnimation {
 ///
 /// (A bananite is a banana ore.)
 fn spawn_banana_on_bananite_depletion(
-    trigger: Trigger<OnRemove, Minable>,
+    trigger: Trigger<OnRemove, Bananite>,
     asset_server: Res<AssetServer>,
     mut gaussian: ResMut<GaussianNoise>,
     mut commands: Commands,
@@ -181,6 +181,9 @@ fn animate_arch(time: Res<Time>, mut dodgers: Populated<(&mut Transform, &mut Ar
     }
 }
 
+#[derive(Component)]
+struct Bananite;
+
 fn spawn_bananite(
     mut commands: Commands,
     keyboard_input: Res<ButtonInput<KeyCode>>,
@@ -201,7 +204,8 @@ fn spawn_bananite(
                     Transform::from_translation(init_trans),
                     Minable {},
                     Collider::from_translation(last_trans, Vec3::new(1.0, 4.0, 1.0)),
-                    Life { left: 3 },
+                    Life::Left(3),
+                    Bananite,
                     SceneRoot(
                         asset_server
                             .load(GltfAssetLabel::Scene(0).from_asset("bananite.gltf#bananite")),
@@ -233,8 +237,9 @@ fn plant_bananite_on_seeds(
                 },
                 Transform::from_translation(init_trans),
                 Minable {},
+                Bananite,
                 Collider::from_translation(last_trans, Vec3::new(1.0, 4.0, 1.0)),
-                Life { left: 3 },
+                Life::Left(3),
                 SceneRoot(
                     asset_server
                         .load(GltfAssetLabel::Scene(0).from_asset("bananite.gltf#bananite")),

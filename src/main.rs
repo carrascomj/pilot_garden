@@ -162,7 +162,7 @@ fn find_main_bone(
             // fake bushes can be removed with the mining pick
             commands
                 .entity(entity)
-                .insert((Minable {}, Life { left: 1 }))
+                .insert((Minable {}, Life::JustSpawned))
                 .observe(remove_on_click);
         }
     }

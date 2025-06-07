@@ -80,8 +80,9 @@ pub struct Diggable;
 #[derive(Component)]
 pub struct Minable;
 #[derive(Component)]
-pub struct Life {
-    pub left: u8,
+pub enum Life {
+    Left(u8),
+    JustSpawned,
 }
 /// Can be taken (shovel, mining pick, food)
 #[derive(Component, PartialEq)]
@@ -230,7 +231,9 @@ pub fn remove_on_click(
             if let Ok(digged) = diggables.get(trigger.target()) {
                 // println!("Target at {:?}", trigger.event().hit.position.unwrap());
                 commands.entity(digged).insert(RemoveTimer::new());
-                *counter -= 1;
+                if *counter > 0 {
+                    *counter -= 1;
+                }
                 for (_, _, _, mut on_hand) in collectables.iter_mut() {
                     if on_hand.active {
                         on_hand.timer.unpause();
@@ -243,7 +246,13 @@ pub fn remove_on_click(
         Inventory::MiningPick => {
             if let Ok(mut mined_life) = minables.get_mut(trigger.target()) {
                 // trigger.event().pointer_location can be used for particles etc.
-                mined_life.left -= 1;
+                if let Life::Left(count) = mined_life.as_mut() {
+                    if *count > 0 {
+                        *count -= 1;
+                    }
+                } else {
+                    *mined_life = Life::Left(1);
+                }
 
                 for (_, _, _, mut on_hand) in collectables.iter_mut() {
                     if on_hand.active {
@@ -472,14 +481,18 @@ impl RemoveTimer {
 /// the entity afterwards at [`remove_animation`].
 fn remove_when_life_depleted(
     mut commands: Commands,
-    mut lifes: Query<(Entity, &mut Transform, &Life), Changed<Life>>,
+    mut lifes: Query<(Entity, &mut Transform, &mut Life), Changed<Life>>,
 ) {
-    for (entity, mut trans, life) in lifes.iter_mut() {
-        if life.left <= 0 {
-            commands.entity(entity).insert(RemoveTimer::new());
-        }
-        if life.left < 3 {
-            trans.scale *= 0.9;
+    for (entity, mut trans, mut life) in lifes.iter_mut() {
+        if let Life::Left(count) = life.as_ref() {
+            if count <= &0 {
+                commands.entity(entity).insert(RemoveTimer::new());
+            }
+            if count < &3 {
+                trans.scale *= 0.9;
+            }
+        } else {
+            *life = Life::Left(1);
         }
     }
 }
