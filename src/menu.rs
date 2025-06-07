@@ -63,8 +63,8 @@ fn spawn_game_menu(
         })),
         children![(
             Node {
-                width: Val::Px(250.0),
-                height: Val::Px(200.0),
+                width: Val::Px(350.0),
+                height: Val::Px(300.0),
                 flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::SpaceBetween,
                 align_items: AlignItems::Center,
@@ -137,9 +137,19 @@ fn spawn_game_menu(
                         TextColor(BUTTON_COLOR),
                         TextShadow::default(),
                     )]
-                )
+                ),
             ]
         )],
+        (
+            Text::new("WINNER: FALSE"),
+            TextFont {
+                font: asset_server.load("fonts/Silkscreen-Bold.ttf"),
+                font_size: 33.0,
+                ..default()
+            },
+            TextColor(Color::srgb(0.9, 0.2, 0.2)),
+            TextShadow::default(),
+        ),
     ));
 }
 
