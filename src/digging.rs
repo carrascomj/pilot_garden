@@ -1,10 +1,10 @@
 //! Systems for digable terrain.
 
 use std::f32::consts::PI;
-use std::time::Duration;
 
 use crate::config::{GameState, REST_ROT};
 use crate::player_movement::{Collider, Player};
+use crate::world_timer::TimerComp;
 use bevy::color::palettes::tailwind::{PINK_100, RED_500};
 use bevy::picking::pointer::PointerInteraction;
 use bevy::prelude::*;
@@ -45,7 +45,6 @@ impl Plugin for DiggingPlugin {
                     draw_mesh_intersections,
                     manage_inventory,
                     animate_interaction,
-                    tick_on_hand_active,
                     remove_when_life_depleted,
                 )
                     .run_if(in_state(GameState::Above)),
@@ -223,7 +222,13 @@ pub fn remove_on_click(
     mut inventory: ResMut<Inventory>,
     diggables: Query<Entity, With<Diggable>>,
     mut minables: Query<&mut Life, With<Minable>>,
-    mut collectables: Query<(Entity, &mut Transform, &Collectible, &mut OnHand)>,
+    mut collectables: Query<(
+        Entity,
+        &mut Transform,
+        &Collectible,
+        &mut OnHand,
+        &mut TimerComp,
+    )>,
     player_query: Query<Entity, With<Player>>,
 ) {
     match inventory.as_mut() {
@@ -234,10 +239,10 @@ pub fn remove_on_click(
                 if *counter > 0 {
                     *counter -= 1;
                 }
-                for (_, _, _, mut on_hand) in collectables.iter_mut() {
+                for (_, _, _, on_hand, mut timer) in collectables.iter_mut() {
                     if on_hand.active {
-                        on_hand.timer.unpause();
-                        on_hand.timer.reset();
+                        timer.0.unpause();
+                        timer.0.reset();
                     }
                 }
                 return;
@@ -254,10 +259,10 @@ pub fn remove_on_click(
                     *mined_life = Life::Left(1);
                 }
 
-                for (_, _, _, mut on_hand) in collectables.iter_mut() {
+                for (_, _, _, on_hand, mut timer) in collectables.iter_mut() {
                     if on_hand.active {
-                        on_hand.timer.unpause();
-                        on_hand.timer.reset();
+                        timer.0.unpause();
+                        timer.0.reset();
                     }
                 }
                 return;
@@ -266,10 +271,10 @@ pub fn remove_on_click(
         Inventory::Food(counter) => {
             // the picked entity does not matter, simply eat the banana.
             *counter -= 1;
-            for (_, _, _, mut on_hand) in collectables.iter_mut() {
+            for (_, _, _, on_hand, mut timer) in collectables.iter_mut() {
                 if on_hand.active {
-                    on_hand.timer.unpause();
-                    on_hand.timer.reset();
+                    timer.0.unpause();
+                    timer.0.reset();
                 }
             }
         }
@@ -278,10 +283,10 @@ pub fn remove_on_click(
                 if let Some(hit_position) = trigger.event().hit.position {
                     seeds_event.write(SeedsPlaced { hit_position });
                     *counter -= 1;
-                    for (_, _, _, mut on_hand) in collectables.iter_mut() {
+                    for (_, _, _, on_hand, mut timer) in collectables.iter_mut() {
                         if on_hand.active {
-                            on_hand.timer.unpause();
-                            on_hand.timer.reset();
+                            timer.0.unpause();
+                            timer.0.reset();
                         }
                     }
                 }
@@ -291,7 +296,7 @@ pub fn remove_on_click(
         }
         _ => (),
     }
-    if let Ok((collected, mut transform, collectible, mut on_hand)) =
+    if let Ok((collected, mut transform, collectible, mut on_hand, _)) =
         collectables.get_mut(trigger.target())
     {
         let Ok(player_ent) = player_query.single() else {
@@ -312,14 +317,6 @@ pub fn remove_on_click(
             Collectible::Seeds => Inventory::Seeds(1),
         };
         on_hand.active = true;
-    }
-}
-
-fn tick_on_hand_active(time: Res<Time>, mut on_hand_query: Query<&mut OnHand>) {
-    for mut on_hand in &mut on_hand_query {
-        if on_hand.active {
-            on_hand.timer.tick(time.delta());
-        }
     }
 }
 
@@ -348,19 +345,14 @@ fn manage_inventory(
 }
 
 #[derive(Component)]
+#[require(TimerComp::from_elapsed(0.25))]
 pub struct OnHand {
     active: bool,
-    timer: Timer,
 }
 
 impl OnHand {
     fn new() -> Self {
-        let mut timer = Timer::new(Duration::from_millis(250), TimerMode::Once);
-        timer.set_elapsed(Duration::from_millis(250));
-        Self {
-            active: false,
-            timer,
-        }
+        Self { active: false }
     }
 }
 
@@ -409,18 +401,18 @@ fn wave(t: f32) -> f32 {
     (t * PI).sin()
 }
 
-fn animate_interaction(mut bones: Query<(&mut Transform, &OnHand, &Collectible)>) {
-    for (mut transform, on_hand, collectible) in &mut bones {
+fn animate_interaction(mut bones: Query<(&mut Transform, &OnHand, &TimerComp, &Collectible)>) {
+    for (mut transform, on_hand, timer, collectible) in &mut bones {
         let (rest_pos, rest_rot) = collectible.on_hand_poses();
         if !on_hand.active {
             continue;
-        } else if on_hand.timer.finished() {
+        } else if timer.0.finished() {
             transform.translation = rest_pos;
             transform.rotation = rest_rot;
             continue;
         }
         // normalised time in the [0, 1] animation range
-        let u = on_hand.timer.fraction();
+        let u = timer.0.fraction();
 
         let (translation, rotation) = match collectible {
             Collectible::Shovel => {
@@ -466,6 +458,9 @@ fn animate_interaction(mut bones: Query<(&mut Transform, &OnHand, &Collectible)>
     }
 }
 
+// `RemoveTimer` owns its own [`Timer`] because it will be inserted in a
+// existing Entity, presumably with a [`TimerComp`] already that would
+// clash with it already.
 #[derive(Component)]
 struct RemoveTimer(Timer);
 

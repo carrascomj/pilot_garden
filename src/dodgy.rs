@@ -7,6 +7,7 @@ use bevy::{prelude::*, render::view::VisibilitySystems};
 use crate::config::{GameState, MAX_CROP_BOUNDS, MIN_CROP_BOUNDS};
 use crate::digging::{Life, Minable, SeedsPlaced, remove_on_click};
 use crate::player_movement::{Collider, Player};
+use crate::world_timer::TimerComp;
 use fastrand::Rng;
 use smallvec;
 
@@ -67,10 +68,10 @@ impl GaussianNoise {
 
 /// Mark entities so that they move towards last_pos while the user is not looking.
 #[derive(Component)]
+#[require(TimerComp(Timer::from_seconds(2.5, TimerMode::Once)))]
 struct Dodgy {
     init_pos: Vec3,
     last_pos: Vec3,
-    timer: Timer,
     /// If true: go back to `init_pos` before the user looks at it.
     go_back: bool,
 }
@@ -84,31 +85,29 @@ fn point_in_view(camera: &Camera, cam_tf: &GlobalTransform, world_pos: Vec3) -> 
 }
 
 fn activate_dodge(
-    time: Res<Time>,
     camera: Single<(&Camera, &GlobalTransform), With<Player>>,
-    mut dodgers: Query<(&GlobalTransform, &mut Dodgy)>,
+    mut dodgers: Query<(&GlobalTransform, &Dodgy, &mut TimerComp)>,
 ) {
     let (cam, gt_cam) = camera.deref();
-    for (gt, mut dodger) in &mut dodgers {
-        dodger.timer.tick(time.delta());
+    for (gt, dodger, mut timer) in &mut dodgers {
         let visible = point_in_view(cam, gt_cam, gt.translation());
         if visible {
             // println!("seeing");
-            dodger.timer.pause();
+            timer.0.pause();
             if dodger.go_back {
-                dodger.timer.reset();
+                timer.0.reset();
             }
         } else {
             // println!("not in viewport");
-            dodger.timer.unpause()
+            timer.0.unpause()
         }
     }
 }
 
-fn animate_dodge(mut dodgers: Query<(&mut Transform, &Dodgy)>) {
-    for (mut trans, dodger) in &mut dodgers {
-        if !dodger.timer.finished() && !dodger.timer.paused() {
-            let u = dodger.timer.fraction();
+fn animate_dodge(mut dodgers: Query<(&mut Transform, &Dodgy, &TimerComp)>) {
+    for (mut trans, dodger, timer) in &mut dodgers {
+        if !timer.0.finished() && !timer.0.paused() {
+            let u = timer.0.fraction();
             trans.translation = u * dodger.last_pos + (1. - u) * dodger.init_pos;
         }
     }
@@ -117,8 +116,8 @@ fn animate_dodge(mut dodgers: Query<(&mut Transform, &Dodgy)>) {
 /// Marks an entity to have an arch animation on spawn.
 /// Animation at [`animate_arch`].
 #[derive(Component)]
+#[require(TimerComp(Timer::from_seconds(0.5, TimerMode::Once)))]
 struct ArchAnimation {
-    timer: Timer,
     init_pos: Vec3,
     last_pos: Vec3,
 }
@@ -135,6 +134,7 @@ fn spawn_banana_on_bananite_depletion(
 ) {
     let entity = trigger.target();
     if let Ok(trans) = bananite_query.get(entity) {
+        println!("spawn bananas!");
         let mut init_pos = trans.translation;
         init_pos.y = 0.3;
         const MAX_BANANAS: usize = 4;
@@ -144,14 +144,9 @@ fn spawn_banana_on_bananite_depletion(
                 let z_offset = gaussian.sample() * 2.0;
                 let last_pos = (trans.translation + Vec3::new(x_offset, init_pos.y, z_offset))
                     .clamp(MIN_CROP_BOUNDS, MAX_CROP_BOUNDS);
-                let timer = Timer::from_seconds(0.5, TimerMode::Once);
                 (
                     Transform::from_translation(init_pos),
-                    ArchAnimation {
-                        timer,
-                        init_pos,
-                        last_pos,
-                    },
+                    ArchAnimation { init_pos, last_pos },
                     SceneRoot(
                         asset_server.load(GltfAssetLabel::Scene(0).from_asset("banana.gltf")),
                     ),
@@ -167,21 +162,21 @@ fn arch_bezier(from: f32, to: f32, peak: f32, u: f32) -> f32 {
     one_minus_u * one_minus_u * from + 2.0 * one_minus_u * u * peak + u * u * to
 }
 
-fn animate_arch(time: Res<Time>, mut dodgers: Populated<(&mut Transform, &mut ArchAnimation)>) {
-    for (mut trans, mut arch) in dodgers.iter_mut() {
-        if !arch.timer.finished() && !arch.timer.paused() {
-            let u = arch.timer.fraction();
+fn animate_arch(mut dodgers: Populated<(&mut Transform, &ArchAnimation, &TimerComp)>) {
+    for (mut trans, arch, timer) in dodgers.iter_mut() {
+        if !timer.0.finished() && !timer.0.paused() {
+            let u = timer.0.fraction();
             let mut next_translation = u * arch.last_pos + (1. - u) * arch.init_pos;
             next_translation.y = arch_bezier(arch.init_pos.y, arch.last_pos.y, 5.0, u);
             trans.translation = next_translation;
-            arch.timer.tick(time.delta());
-        } else if arch.timer.just_finished() {
+        } else if timer.0.just_finished() {
             trans.translation = arch.last_pos;
         }
     }
 }
 
 #[derive(Component)]
+#[require(Minable{}, Life::Left(3))]
 struct Bananite;
 
 fn spawn_bananite(
@@ -198,13 +193,10 @@ fn spawn_bananite(
                     Dodgy {
                         init_pos: init_trans,
                         last_pos: last_trans,
-                        timer: Timer::from_seconds(2.5, TimerMode::Once),
                         go_back: false,
                     },
                     Transform::from_translation(init_trans),
-                    Minable {},
                     Collider::from_translation(last_trans, Vec3::new(1.0, 4.0, 1.0)),
-                    Life::Left(3),
                     Bananite,
                     SceneRoot(
                         asset_server
@@ -232,14 +224,11 @@ fn plant_bananite_on_seeds(
                 Dodgy {
                     init_pos: init_trans,
                     last_pos: last_trans,
-                    timer: Timer::from_seconds(3.0, TimerMode::Once),
                     go_back: false,
                 },
                 Transform::from_translation(init_trans),
-                Minable {},
                 Bananite,
                 Collider::from_translation(last_trans, Vec3::new(1.0, 4.0, 1.0)),
-                Life::Left(3),
                 SceneRoot(
                     asset_server
                         .load(GltfAssetLabel::Scene(0).from_asset("bananite.gltf#bananite")),

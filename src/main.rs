@@ -4,17 +4,18 @@ use bevy::{
 };
 use menu::GameMenu;
 use std::f32::consts::TAU;
-use std::time::Duration;
 
 mod config;
 mod digging;
 mod dodgy;
 mod menu;
 mod player_movement;
+mod world_timer;
 
 use digging::{DiggingPlugin, Life, Minable, remove_on_click};
 use dodgy::DodgyPlugin;
 use player_movement::{Collider, Player, PlayerPlugin};
+use world_timer::{DayNightPlugin, TimerComp};
 
 use config::{BUMP_DISTANCE, GROUND_Y, GameState};
 
@@ -52,7 +53,13 @@ fn main() {
                 .run_if(not(in_state(GameState::Menu))),
         )
         // custom game mechanics
-        .add_plugins((PlayerPlugin, DodgyPlugin, DiggingPlugin, GameMenu))
+        .add_plugins((
+            PlayerPlugin,
+            DodgyPlugin,
+            DiggingPlugin,
+            GameMenu,
+            DayNightPlugin,
+        ))
         .add_plugins(MaterialPlugin::<CapsuleMaterial>::default())
         .run();
 }
@@ -139,8 +146,8 @@ fn menu_on_click(
 /// small procedural animation that twists the object back and forth.
 /// Marker for main bone, added after loading the gltf if a bone with name "main" exists.
 #[derive(Component)]
+#[require(TimerComp::from_elapsed(0.5))]
 struct MainBone {
-    timer: Timer,
     rest_rot: Quat,
     active: bool,
 }
@@ -151,10 +158,7 @@ fn find_main_bone(
 ) {
     for (entity, name, transform) in new_names.iter() {
         if name.as_str().starts_with("main") {
-            let mut timer = Timer::new(Duration::from_millis(500), TimerMode::Once);
-            timer.set_elapsed(Duration::from_millis(500));
             commands.entity(entity).insert(MainBone {
-                timer,
                 rest_rot: transform.rotation,
                 active: true,
             });
@@ -169,21 +173,19 @@ fn find_main_bone(
 }
 
 fn trigger_main_bone_animation(
-    time: Res<Time>,
     player: Single<&Transform, With<Player>>,
-    mut transforms: Query<(&GlobalTransform, &mut MainBone), Without<Player>>, // all transforms
+    mut transforms: Query<(&GlobalTransform, &mut MainBone, &mut TimerComp), Without<Player>>, // all transforms
 ) {
     let transform = player.into_inner();
-    for (parent_t, mut main_bone) in &mut transforms {
-        main_bone.timer.tick(time.delta());
+    for (parent_t, mut main_bone, mut timer) in &mut transforms {
         if parent_t
             .translation()
             .distance_squared(transform.translation)
             < BUMP_DISTANCE
         {
-            if main_bone.timer.finished() && main_bone.active {
-                main_bone.timer.unpause();
-                main_bone.timer.reset();
+            if timer.0.finished() && main_bone.active {
+                timer.0.unpause();
+                timer.0.reset();
                 // only trigger the animation once after entering the bump distance
                 main_bone.active = false;
             }
@@ -193,18 +195,16 @@ fn trigger_main_bone_animation(
     }
 }
 
-fn animate_main_bone(mut bones: Query<(&mut Transform, &MainBone)>) {
+fn animate_main_bone(mut bones: Query<(&mut Transform, &MainBone, &TimerComp)>) {
     const AMP: f32 = 0.30; // max rad
     const FREQ: f32 = 3.0; // oscillations per second
     const DECAY: f32 = 2.5; // bigger -> stops sooner
 
-    for (mut transform, bone) in &mut bones {
-        if !bone.timer.finished() {
-            let u = bone.timer.fraction();
-
+    for (mut transform, bone, timer) in &mut bones {
+        if !timer.0.finished() {
+            let u = timer.0.fraction();
             // damped wobble: sin curve multiplied by an exponential decay
             let angle = AMP * (TAU * FREQ * u).sin() * (-DECAY * u).exp();
-
             transform.rotation = bone.rest_rot * Quat::from_rotation_x(angle);
         }
     }
