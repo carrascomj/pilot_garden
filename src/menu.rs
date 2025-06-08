@@ -44,112 +44,129 @@ fn spawn_game_menu(
     mut ui_materials: ResMut<Assets<HibernationMaterial>>,
 ) {
     commands.spawn((
-        StartMenu,
         Node {
-            display: Display::Flex,
             width: Val::Percent(100.0),
             height: Val::Percent(100.0),
-            align_self: AlignSelf::Center,
-            justify_self: JustifySelf::Center,
-            align_items: AlignItems::Center,
-            justify_content: JustifyContent::Center,
-            flex_direction: FlexDirection::Column,
+            display: Display::Block,
             ..default()
         },
-        BackgroundColor(Color::BLACK), // fog colour
-        MaterialNode(ui_materials.add(HibernationMaterial {
-            time: 0.0,
-            disolve_time: -1.0,
-        })),
-        children![(
-            Node {
-                width: Val::Px(350.0),
-                height: Val::Px(300.0),
-                flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::SpaceBetween,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            StateScoped(GameState::Menu),
-            children![
-                (
-                    Button,
-                    ButtonAction::StartGame,
+        children![
+            (
+                StartMenu,
+                Node {
+                    display: Display::Flex,
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    align_self: AlignSelf::Center,
+                    justify_self: JustifySelf::Center,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    flex_direction: FlexDirection::Column,
+                    ..default()
+                },
+                BackgroundColor(Color::BLACK), // fog colour
+                MaterialNode(ui_materials.add(HibernationMaterial {
+                    time: 0.0,
+                    disolve_time: -1.0,
+                })),
+                children![(
                     Node {
-                        width: Val::Px(150.0),
-                        height: Val::Px(65.0),
-                        border: UiRect::all(Val::Px(5.0)),
-                        // horizontally center child text
-                        justify_content: JustifyContent::Center,
-                        // vertically center child text
+                        width: Val::Px(350.0),
+                        height: Val::Px(200.0),
+                        flex_direction: FlexDirection::Column,
+                        justify_content: JustifyContent::SpaceBetween,
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    BorderColor(BUTTON_COLOR),
-                    BoxShadow::new(
-                        BUTTON_COLOR.with_alpha(0.2),
-                        Val::Percent(0.),
-                        Val::Percent(0.),
-                        Val::Percent(3.0),
-                        Val::Px(3.0),
-                    ),
-                    BackgroundColor(Color::NONE),
-                    children![(
-                        Text::new("START"),
-                        TextFont {
-                            font: asset_server.load("fonts/Silkscreen-Bold.ttf"),
-                            font_size: 33.0,
-                            ..default()
-                        },
-                        TextColor(BUTTON_COLOR),
-                        TextShadow::default(),
-                    )]
-                ),
-                (
-                    Button,
-                    ButtonAction::ShowSettings,
-                    Node {
-                        width: Val::Px(220.0),
-                        height: Val::Px(65.0),
-                        border: UiRect::all(Val::Px(5.0)),
-                        // horizontally center child text
-                        justify_content: JustifyContent::Center,
-                        // vertically center child text
-                        align_items: AlignItems::Center,
-                        ..default()
-                    },
-                    BorderColor(BUTTON_COLOR),
-                    BoxShadow::new(
-                        BUTTON_COLOR.with_alpha(0.2),
-                        Val::Percent(0.),
-                        Val::Percent(0.),
-                        Val::Percent(3.0),
-                        Val::Px(3.0),
-                    ),
-                    BackgroundColor(Color::NONE),
-                    children![(
-                        Text::new("SETTINGS"),
-                        TextFont {
-                            font: asset_server.load("fonts/Silkscreen-Bold.ttf"),
-                            font_size: 33.0,
-                            ..default()
-                        },
-                        TextColor(BUTTON_COLOR),
-                        TextShadow::default(),
-                    )]
-                ),
-            ]
-        )],
-        (
-            Text::new("WINNER: FALSE"),
-            TextFont {
-                font: asset_server.load("fonts/Silkscreen-Bold.ttf"),
-                font_size: 33.0,
-                ..default()
-            },
-            TextColor(Color::srgb(0.9, 0.2, 0.2)),
-            TextShadow::default(),
-        ),
+                    StateScoped(GameState::Menu),
+                    children![
+                        (
+                            Button,
+                            ButtonAction::StartGame,
+                            Node {
+                                width: Val::Px(150.0),
+                                height: Val::Px(65.0),
+                                border: UiRect::all(Val::Px(5.0)),
+                                // horizontally center child text
+                                justify_content: JustifyContent::Center,
+                                // vertically center child text
+                                align_items: AlignItems::Center,
+                                ..default()
+                            },
+                            BorderColor(BUTTON_COLOR),
+                            BoxShadow::new(
+                                BUTTON_COLOR.with_alpha(0.2),
+                                Val::Percent(0.),
+                                Val::Percent(0.),
+                                Val::Percent(3.0),
+                                Val::Px(3.0),
+                            ),
+                            BackgroundColor(Color::NONE),
+                            children![(
+                                Text::new("START"),
+                                TextFont {
+                                    font: asset_server.load("fonts/Silkscreen-Bold.ttf"),
+                                    font_size: 33.0,
+                                    ..default()
+                                },
+                                TextColor(BUTTON_COLOR),
+                                TextShadow::default(),
+                            )]
+                        ),
+                        (
+                            Button,
+                            ButtonAction::ShowSettings,
+                            Node {
+                                width: Val::Px(220.0),
+                                height: Val::Px(65.0),
+                                border: UiRect::all(Val::Px(5.0)),
+                                // horizontally center child text
+                                justify_content: JustifyContent::Center,
+                                // vertically center child text
+                                align_items: AlignItems::Center,
+                                ..default()
+                            },
+                            BorderColor(BUTTON_COLOR),
+                            BoxShadow::new(
+                                BUTTON_COLOR.with_alpha(0.2),
+                                Val::Percent(0.),
+                                Val::Percent(0.),
+                                Val::Percent(3.0),
+                                Val::Px(3.0),
+                            ),
+                            BackgroundColor(Color::NONE),
+                            children![(
+                                Text::new("SETTINGS"),
+                                TextFont {
+                                    font: asset_server.load("fonts/Silkscreen-Bold.ttf"),
+                                    font_size: 33.0,
+                                    ..default()
+                                },
+                                TextColor(BUTTON_COLOR),
+                                TextShadow::default(),
+                            )]
+                        )
+                    ]
+                ),]
+            ),
+            (
+                Node {
+                    position_type: PositionType::Absolute,
+                    right: Val::Vw(1.0),
+                    bottom: Val::Vh(1.0),
+                    ..default()
+                },
+                Text::new("WINNER: FALSE"),
+                TextFont {
+                    font: asset_server.load("fonts/Silkscreen-Bold.ttf"),
+                    font_size: 15.0,
+                    ..default()
+                },
+                TextColor(Color::srgb(0.9, 0.2, 0.2)),
+                TextShadow::default(),
+                StateScoped(GameState::Menu),
+            ),
+        ],
     ));
 }
 
