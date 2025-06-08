@@ -69,11 +69,11 @@ impl GaussianNoise {
 /// Mark entities so that they move towards last_pos while the user is not looking.
 #[derive(Component)]
 #[require(TimerComp(Timer::from_seconds(2.5, TimerMode::Once)))]
-struct Dodgy {
-    init_pos: Vec3,
-    last_pos: Vec3,
+pub struct Dodgy {
+    pub init_pos: Vec3,
+    pub last_pos: Vec3,
     /// If true: go back to `init_pos` before the user looks at it.
-    go_back: bool,
+    pub go_back: bool,
 }
 
 fn point_in_view(camera: &Camera, cam_tf: &GlobalTransform, world_pos: Vec3) -> bool {
@@ -92,13 +92,11 @@ fn activate_dodge(
     for (gt, dodger, mut timer) in &mut dodgers {
         let visible = point_in_view(cam, gt_cam, gt.translation());
         if visible {
-            // println!("seeing");
             timer.0.pause();
             if dodger.go_back {
                 timer.0.reset();
             }
         } else {
-            // println!("not in viewport");
             timer.0.unpause()
         }
     }
@@ -117,9 +115,10 @@ fn animate_dodge(mut dodgers: Query<(&mut Transform, &Dodgy, &TimerComp)>) {
 /// Animation at [`animate_arch`].
 #[derive(Component)]
 #[require(TimerComp(Timer::from_seconds(0.5, TimerMode::Once)))]
-struct ArchAnimation {
-    init_pos: Vec3,
-    last_pos: Vec3,
+pub struct ArchAnimation {
+    pub init_pos: Vec3,
+    pub last_pos: Vec3,
+    pub peak_y: f32,
 }
 
 /// Spawn some bananas once a bananite is depleted.
@@ -137,6 +136,7 @@ fn spawn_banana_on_bananite_depletion(
         println!("spawn bananas!");
         let mut init_pos = trans.translation;
         init_pos.y = 0.3;
+        let peak_y = 5.0;
         const MAX_BANANAS: usize = 4;
         let bananas = (0..gaussian.rng.u8(3..(MAX_BANANAS as u8)))
             .map(|_| {
@@ -146,7 +146,11 @@ fn spawn_banana_on_bananite_depletion(
                     .clamp(MIN_CROP_BOUNDS, MAX_CROP_BOUNDS);
                 (
                     Transform::from_translation(init_pos),
-                    ArchAnimation { init_pos, last_pos },
+                    ArchAnimation {
+                        init_pos,
+                        last_pos,
+                        peak_y,
+                    },
                     SceneRoot(
                         asset_server.load(GltfAssetLabel::Scene(0).from_asset("banana.gltf")),
                     ),
@@ -167,7 +171,7 @@ fn animate_arch(mut dodgers: Populated<(&mut Transform, &ArchAnimation, &TimerCo
         if !timer.0.finished() && !timer.0.paused() {
             let u = timer.0.fraction();
             let mut next_translation = u * arch.last_pos + (1. - u) * arch.init_pos;
-            next_translation.y = arch_bezier(arch.init_pos.y, arch.last_pos.y, 5.0, u);
+            next_translation.y = arch_bezier(arch.init_pos.y, arch.last_pos.y, arch.peak_y, u);
             trans.translation = next_translation;
         } else if timer.0.just_finished() {
             trans.translation = arch.last_pos;

@@ -51,6 +51,7 @@ fn spawn_player(mut commands: Commands) {
         }),
         Camera {
             clear_color: ClearColorConfig::Custom(Color::srgb(0.25, 0.2, 0.5)),
+            hdr: true,
             ..Default::default()
         },
         Transform::from_translation(START_POS).looking_at(Vec3::new(0.0, 1.0, 0.0), Vec3::Y),

@@ -39,7 +39,7 @@ fn main() {
         }),))
         .init_state::<GameState>()
         .insert_resource(AmbientLight {
-            brightness: 300.0,
+            brightness: 40.0,
             ..default()
         })
         .add_systems(Startup, (setup, setup_colliders))
@@ -98,19 +98,6 @@ fn setup(
         asset_server.load(GltfAssetLabel::Scene(0).from_asset("bush.gltf")),
     ));
 
-    commands.spawn((
-        DirectionalLight {
-            color: Color::Srgba(Srgba {
-                red: 0.95,
-                green: 0.64,
-                blue: 0.75,
-                alpha: 1.0,
-            }),
-            shadows_enabled: true,
-            ..default()
-        },
-        Transform::from_xyz(10.0, 10.0, 8.0).looking_at(Vec3::X * 10.0, Vec3::NEG_Y),
-    ));
     // spawn the capsule, which is generated with a material with a shader
     const POS: Vec3 = Vec3::new(-6.0, 3.0, 8.0);
     commands
