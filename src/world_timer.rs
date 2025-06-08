@@ -6,7 +6,6 @@ use std::{
 };
 
 use bevy::{
-    pbr::NotShadowCaster,
     prelude::*,
     render::{
         mesh::{SphereKind, SphereMeshBuilder},
@@ -24,16 +23,13 @@ pub struct DayNightPlugin;
 
 impl Plugin for DayNightPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnExit(GameState::Menu), spawn_sun)
+        app.add_systems(OnEnter(GameState::Above), spawn_sun)
             .add_systems(
                 Update,
-                (
-                    flag_lantern_frame_as_not_caster,
-                    (orbit_sun, show_alarm, lit_lamps).run_if(not(in_state(GameState::Menu))),
-                ),
+                ((orbit_sun, show_alarm, lit_lamps).run_if(not(in_state(GameState::Menu))),),
             )
             .add_systems(
-                FixedUpdate,
+                PreUpdate,
                 advance_timers.run_if(not(in_state(GameState::Menu))),
             );
     }
@@ -113,7 +109,7 @@ fn spawn_sun(
         ..default()
     }));
 
-    for init_pos in [Vec3::new(0.5, -11., -8.0), Vec3::new(31.0, -11., 9.0)] {
+    for init_pos in [Vec3::new(-6.0, -11., -8.0), Vec3::new(29.5, -11., 10.0)] {
         let mut timer = TimerComp::from_elapsed(2.5);
         timer.0.pause();
         commands
@@ -135,18 +131,20 @@ fn spawn_sun(
             ))
             .with_child((
                 Visibility::Hidden,
-                PointLight {
+                SpotLight {
                     color: Color::srgb(0.98, 0.93, 0.5),
-                    intensity: 100_000.0, // lumen-ish; play with it
-                    radius: 10.,          // penumbra size
-                    // inner_angle: 15_f32.to_radians(),
-                    // outer_angle: 35_f32.to_radians(),
+                    intensity: 200_000.0,
+                    // avoid casting shadows over the streetlight mesh
+                    shadow_depth_bias: 3.0,
+                    range: 30., // penumbra size
+                    inner_angle: 90_f32.to_radians(),
+                    outer_angle: 90_f32.to_radians(),
                     shadows_enabled: true,
                     ..default()
                 },
                 bulb_material.clone(),
                 bulb_mesh.clone(),
-                Transform::from_xyz(0., 8.3, 0.),
+                Transform::from_xyz(0., 8.3, 0.).looking_at(Vec3::Y * -8.3, Vec3::NEG_Y),
             ));
     }
 }
@@ -205,19 +203,6 @@ fn orbit_sun(mut sun_query: Query<(&mut Transform, &Sun, &TimerComp, &mut Direct
         .max(0.05); // never pitch-black unless you want it
 }
 
-/// Remove shadows from the light meshes so that the light can
-/// go through.
-fn flag_lantern_frame_as_not_caster(
-    mut commands: Commands,
-    q: Query<(Entity, &Name), Added<Name>>,
-) {
-    for (entity, name) in &q {
-        if name.as_str().contains("light_mesh") {
-            commands.entity(entity).insert(NotShadowCaster);
-        }
-    }
-}
-
 /// Show [`Dodgy`] elements when the night is near and it's time to
 /// go back to the capsule.
 fn show_alarm(
@@ -238,11 +223,11 @@ fn show_alarm(
 
 fn lit_lamps(
     show_parents: Query<(&TimerComp, &Children, &ShowOnAlarmTime)>,
-    mut lamps: Query<&mut Visibility, With<PointLight>>,
+    mut lamps: Query<&mut Visibility, With<SpotLight>>,
 ) {
     for (timer, children, show) in show_parents {
         // using just_finished alone is unreliable
-        if timer.0.finished() && show.0 {
+        if timer.0.just_finished() && show.0 {
             for child in children {
                 if let Ok(mut vis) = lamps.get_mut(*child) {
                     *vis = Visibility::Visible;
