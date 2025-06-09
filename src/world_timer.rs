@@ -75,8 +75,14 @@ struct Sun {
 #[derive(Component)]
 struct NighTimer;
 
+/// Marker for elements that appear at night.
 #[derive(Component)]
-struct ShowOnAlarmTime(bool);
+struct ShowOnAlarmTime {
+    /// If true, time to show the lights.
+    show: bool,
+    /// If true, swap `init_pos` and `last_pos` of [`Dodgy`] next time is read.
+    swap_pos: bool,
+}
 
 fn spawn_sun(
     mut commands: Commands,
@@ -164,7 +170,10 @@ fn spawn_sun(
                 go_back: false,
             },
             StateScoped(GameState::Above),
-            ShowOnAlarmTime(false),
+            ShowOnAlarmTime {
+                show: false,
+                swap_pos: false,
+            },
             // since the light would disappear if not looking at it
             timer,
             Transform::from_translation(init_pos),
@@ -281,17 +290,24 @@ fn orbit_sun(
 fn show_alarm(
     mut commands: Commands,
     timer: Query<&TimerComp, With<NighTimer>>,
-    mut dodgers: Query<(&mut TimerComp, &mut ShowOnAlarmTime), Without<NighTimer>>,
+    mut dodgers: Query<(&mut TimerComp, &mut Dodgy, &mut ShowOnAlarmTime), Without<NighTimer>>,
     mut capsule: Single<(Entity, &Transform, &mut Capsule)>,
 ) {
     let Ok(alarm) = timer.single() else {
         return;
     };
     if alarm.0.just_finished() {
-        for (mut dodgy_timer, mut show) in dodgers.iter_mut() {
+        for (mut dodgy_timer, mut dodgy, mut show) in dodgers.iter_mut() {
             dodgy_timer.0.reset();
             dodgy_timer.0.unpause();
-            show.0 = true;
+            show.show = true;
+            if show.swap_pos {
+                *dodgy = Dodgy {
+                    init_pos: dodgy.last_pos,
+                    last_pos: dodgy.init_pos,
+                    go_back: dodgy.go_back,
+                };
+            }
         }
         // show capsule.
         let mut cmd = commands.entity(capsule.0);
@@ -332,7 +348,7 @@ fn lit_lamps(
 ) {
     for (timer, children, show) in show_parents {
         // using just_finished alone is unreliable
-        if timer.0.just_finished() && show.0 {
+        if timer.0.just_finished() && show.show {
             for child in children {
                 if let Ok(mut vis) = lamps.get_mut(*child) {
                     vis.toggle_visible_hidden();
@@ -342,17 +358,35 @@ fn lit_lamps(
     }
 }
 
+// DAY LOGIC
+
 /// All the logic when a a day is restarted:
 ///
 /// * [x] Night timer restarts.
-/// * [] ShowOnAlarmTime are hidden.
+/// * [x] ShowOnAlarmTime are hidden.
 /// * [] Capsule is hidden.
 /// * [] Tools are replenished.
 fn restart_day(
     sun_timer: Single<&TimerComp, (With<Sun>, Without<NighTimer>)>,
     mut night_timer: Single<&mut TimerComp, (With<NighTimer>, Without<Sun>)>,
+    mut dodgers: Query<
+        (&mut TimerComp, &mut ShowOnAlarmTime, &mut Dodgy),
+        (Without<NighTimer>, Without<Sun>),
+    >,
 ) {
     if sun_timer.0.just_finished() {
         night_timer.0.reset();
+        // hide all dodgy elements that where shown on sun (`ShowOnAlarmTime`)
+        for (mut timer, mut show, mut dodgy) in &mut dodgers {
+            show.show = false;
+            *dodgy = Dodgy {
+                init_pos: dodgy.last_pos,
+                last_pos: dodgy.init_pos,
+                go_back: dodgy.go_back,
+            };
+            // hide them
+            timer.0.reset();
+            timer.0.unpause();
+        }
     }
 }
