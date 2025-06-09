@@ -42,6 +42,7 @@ fn spawn_game_menu(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut ui_materials: ResMut<Assets<HibernationMaterial>>,
+    mut window: Single<&mut Window>,
 ) {
     commands.spawn((
         Node {
@@ -50,9 +51,10 @@ fn spawn_game_menu(
             display: Display::Block,
             ..default()
         },
+        StartMenu,
+        BackgroundColor(Color::BLACK), // fog colour
         children![
             (
-                StartMenu,
                 Node {
                     display: Display::Flex,
                     width: Val::Percent(100.0),
@@ -64,7 +66,6 @@ fn spawn_game_menu(
                     flex_direction: FlexDirection::Column,
                     ..default()
                 },
-                BackgroundColor(Color::BLACK), // fog colour
                 MaterialNode(ui_materials.add(HibernationMaterial {
                     time: 0.0,
                     disolve_time: -1.0,
@@ -134,7 +135,6 @@ fn spawn_game_menu(
                                 Val::Percent(3.0),
                                 Val::Px(3.0),
                             ),
-                            BackgroundColor(Color::NONE),
                             children![(
                                 Text::new("SETTINGS"),
                                 TextFont {
@@ -168,6 +168,11 @@ fn spawn_game_menu(
             ),
         ],
     ));
+    window.cursor_options = CursorOptions {
+        visible: true,
+        grab_mode: bevy::window::CursorGrabMode::Locked,
+        ..default()
+    };
 }
 
 /// Maintaing material updated with time and trigger awakening
@@ -186,10 +191,6 @@ fn update_time(
             // dissolve the background with the shader after the eyes open
             let alpha = 1. - (diff - 3.0).clamp(0., 5.) / 5.0;
             state_menu.1.0.set_alpha(alpha);
-            if diff > 0.0 && player.y <= 2.0 {
-                player.0.x += 100.0;
-                player.0.y += 10.0;
-            }
             if diff > 5.0 {
                 commands.entity(state_menu.0).despawn()
             }

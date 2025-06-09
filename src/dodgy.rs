@@ -5,7 +5,7 @@ use std::ops::Deref;
 use bevy::{prelude::*, render::view::VisibilitySystems};
 
 use crate::config::{GameState, MAX_CROP_BOUNDS, MIN_CROP_BOUNDS};
-use crate::digging::{Life, Minable, SeedsPlaced, remove_on_click};
+use crate::digging::{Life, Minable, SeedsPlaced};
 use crate::player_movement::{Collider, Player};
 use crate::world_timer::TimerComp;
 use fastrand::Rng;
@@ -30,7 +30,7 @@ impl Plugin for DodgyPlugin {
         .add_observer(spawn_banana_on_bananite_depletion);
 
         if cfg!(debug_assertions) {
-            app.add_systems(Startup, spawn_bananite);
+            app.add_systems(Update, spawn_bananite);
         }
     }
 }
@@ -192,22 +192,20 @@ fn spawn_bananite(
         for (x, y) in [(20.0, -2.0), (20.0, -5.0), (25.0, -5.0), (25.0, -2.0)] {
             let init_trans = Vec3::new(x, -5.0, y);
             let last_trans = Vec3::new(x, -0.2, y);
-            commands
-                .spawn((
-                    Dodgy {
-                        init_pos: init_trans,
-                        last_pos: last_trans,
-                        go_back: false,
-                    },
-                    Transform::from_translation(init_trans),
-                    Collider::from_translation(last_trans, Vec3::new(1.0, 4.0, 1.0)),
-                    Bananite,
-                    SceneRoot(
-                        asset_server
-                            .load(GltfAssetLabel::Scene(0).from_asset("bananite.gltf#bananite")),
-                    ),
-                ))
-                .observe(remove_on_click);
+            commands.spawn((
+                Dodgy {
+                    init_pos: init_trans,
+                    last_pos: last_trans,
+                    go_back: false,
+                },
+                Transform::from_translation(init_trans),
+                Collider::from_translation(last_trans, Vec3::new(1.0, 4.0, 1.0)),
+                Bananite,
+                SceneRoot(
+                    asset_server
+                        .load(GltfAssetLabel::Scene(0).from_asset("bananite.gltf#bananite")),
+                ),
+            ));
         }
     }
 }
@@ -223,21 +221,18 @@ fn plant_bananite_on_seeds(
             .clamp(MIN_CROP_BOUNDS + 1.5, MAX_CROP_BOUNDS - 1.5);
         let init_trans = Vec3::new(x, y - 5.0, z);
         let last_trans = Vec3::new(x, y, z);
-        commands
-            .spawn((
-                Dodgy {
-                    init_pos: init_trans,
-                    last_pos: last_trans,
-                    go_back: false,
-                },
-                Transform::from_translation(init_trans),
-                Bananite,
-                Collider::from_translation(last_trans, Vec3::new(1.0, 4.0, 1.0)),
-                SceneRoot(
-                    asset_server
-                        .load(GltfAssetLabel::Scene(0).from_asset("bananite.gltf#bananite")),
-                ),
-            ))
-            .observe(remove_on_click);
+        commands.spawn((
+            Dodgy {
+                init_pos: init_trans,
+                last_pos: last_trans,
+                go_back: false,
+            },
+            Transform::from_translation(init_trans),
+            Bananite,
+            Collider::from_translation(last_trans, Vec3::new(1.0, 4.0, 1.0)),
+            SceneRoot(
+                asset_server.load(GltfAssetLabel::Scene(0).from_asset("bananite.gltf#bananite")),
+            ),
+        ));
     }
 }

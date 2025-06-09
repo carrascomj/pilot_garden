@@ -12,9 +12,12 @@ pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, spawn_player)
-            .add_systems(OnEnter(GameState::Menu), reset_player)
-            .add_systems(Update, (advance_physics, interpolate_rendered_transform))
-            .add_systems(Update, move_player.run_if(not(in_state(GameState::Menu))));
+            .add_systems(OnExit(GameState::Menu), reset_player)
+            .add_systems(
+                Update,
+                (move_player, advance_physics, interpolate_rendered_transform)
+                    .run_if(not(in_state(GameState::Menu))),
+            );
     }
 }
 

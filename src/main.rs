@@ -10,11 +10,13 @@ mod digging;
 mod dodgy;
 mod menu;
 mod player_movement;
+mod point_raycast;
 mod world_timer;
 
-use digging::{DiggingPlugin, Life, Minable, remove_on_click};
+use digging::{DiggingPlugin, Life, Minable};
 use dodgy::DodgyPlugin;
 use player_movement::{Collider, Player, PlayerPlugin};
+use point_raycast::FirstPersonPickerPlugin;
 use world_timer::{DayNightPlugin, TimerComp};
 
 use config::{BUMP_DISTANCE, GROUND_Y, GameState};
@@ -54,6 +56,7 @@ fn main() {
         )
         // custom game mechanics
         .add_plugins((
+            FirstPersonPickerPlugin,
             PlayerPlugin,
             DodgyPlugin,
             DiggingPlugin,
@@ -100,15 +103,13 @@ fn setup(
 
     // spawn the capsule, which is generated with a material with a shader
     const POS: Vec3 = Vec3::new(-6.0, 3.0, 8.0);
-    commands
-        .spawn((
-            Mesh3d(meshes.add(Cylinder::new(1., 4.))),
-            MeshMaterial3d(materials.add(CapsuleMaterial {})),
-            Transform::from_translation(POS).with_rotation(Quat::from_rotation_y(3.14)),
-            Collider::from_translation(POS, Vec3::new(1.0, 3.0, 1.0)),
-            Capsule { active: true },
-        ))
-        .observe(menu_on_click);
+    commands.spawn((
+        Mesh3d(meshes.add(Cylinder::new(1., 4.))),
+        MeshMaterial3d(materials.add(CapsuleMaterial {})),
+        Transform::from_translation(POS).with_rotation(Quat::from_rotation_y(3.14)),
+        Collider::from_translation(POS, Vec3::new(1.0, 3.0, 1.0)),
+        Capsule { active: true },
+    ));
 }
 
 /// Marker for the capsule so we can check if we clicked it
@@ -116,17 +117,6 @@ fn setup(
 #[derive(Component)]
 pub struct Capsule {
     pub active: bool,
-}
-
-/// This needs more polish, with an animation or something.
-fn menu_on_click(
-    _trigger: Trigger<Pointer<Pressed>>,
-    mut next_state: ResMut<NextState<GameState>>,
-    capsule: Single<&Capsule>,
-) {
-    if capsule.active {
-        next_state.set(GameState::Menu);
-    }
 }
 
 /// The player may bump with objects. If they have a "main" bone, this will cause a
@@ -153,8 +143,7 @@ fn find_main_bone(
             // fake bushes can be removed with the mining pick
             commands
                 .entity(entity)
-                .insert((Minable {}, Life::JustSpawned))
-                .observe(remove_on_click);
+                .insert((Minable {}, Life::JustSpawned));
         }
     }
 }

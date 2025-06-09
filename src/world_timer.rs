@@ -100,7 +100,7 @@ fn spawn_sun(
     let sphere = SphereMeshBuilder::new(0.4, SphereKind::Ico { subdivisions: 4 }).build();
     let bulb_mesh = Mesh3d(meshes.add(sphere));
     let bulb_color = Vec3::new(0.8, 0.8, 0.8);
-    let bulb_color_more = Vec3::new(0.95, 0.93, 0.5);
+    let bulb_color_more = Vec3::new(30., 30., 30.);
     let bulb_material = MeshMaterial3d(materials.add(StandardMaterial {
         base_color: Color::srgb_from_array(bulb_color.into()),
         emissive: LinearRgba::rgb(bulb_color_more.x, bulb_color_more.y, bulb_color_more.z),
