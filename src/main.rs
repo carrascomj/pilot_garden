@@ -48,7 +48,7 @@ fn main() {
             ..default()
         })
         .add_systems(Startup, (setup, setup_colliders))
-        .add_systems(OnEnter(GameState::Menu), spawn_tool_bench)
+        .add_systems(OnEnter(GameState::Menu), (spawn_tool_bench, spawn_crops))
         .add_systems(
             Update,
             (
@@ -154,6 +154,23 @@ fn spawn_tool_bench(
     ));
 }
 
+/// Marker for the crop container.
+#[derive(Component)]
+pub struct Crop;
+
+fn spawn_crops(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    existing_crop: Query<Entity, With<Crop>>,
+) {
+    for tooltip in &existing_crop {
+        commands.entity(tooltip).despawn();
+    }
+    commands.spawn((
+        SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("crops.glb"))),
+        Crop,
+    ));
+}
 /// The player may bump with objects. If they have a "main" bone, this will cause a
 /// small procedural animation that twists the object back and forth.
 /// Marker for main bone, added after loading the gltf if a bone with name "main" exists.

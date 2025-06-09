@@ -164,7 +164,7 @@ fn cast_player_ray(
 
                     commands.entity(player_ent).insert_children(4, &[ent]);
                     *inventory = match collectible {
-                        Collectible::Shovel => Inventory::Shovel(7),
+                        Collectible::Shovel => Inventory::Shovel(5),
                         Collectible::MiningPick => Inventory::MiningPick,
                         Collectible::Food => Inventory::Food(1),
                         Collectible::Seeds => Inventory::Seeds(1),
