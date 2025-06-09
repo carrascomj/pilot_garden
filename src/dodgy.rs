@@ -133,7 +133,6 @@ fn spawn_banana_on_bananite_depletion(
 ) {
     let entity = trigger.target();
     if let Ok(trans) = bananite_query.get(entity) {
-        println!("spawn bananas!");
         let mut init_pos = trans.translation;
         init_pos.y = 0.3;
         let peak_y = 5.0;

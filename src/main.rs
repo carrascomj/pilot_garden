@@ -17,10 +17,10 @@ mod point_raycast;
 mod world_timer;
 
 use digging::{DiggingPlugin, Life, Minable};
-use dodgy::DodgyPlugin;
+use dodgy::{Dodgy, DodgyPlugin};
 use player_movement::{Collider, Player, PlayerPlugin};
 use point_raycast::FirstPersonPickerPlugin;
-use world_timer::{DayNightPlugin, TimerComp};
+use world_timer::{DayNightPlugin, ShowOnAlarmTime, TimerComp};
 
 use config::{BUMP_DISTANCE, GROUND_Y, GameState};
 
@@ -48,6 +48,7 @@ fn main() {
             ..default()
         })
         .add_systems(Startup, (setup, setup_colliders))
+        .add_systems(OnEnter(GameState::Menu), spawn_tool_bench)
         .add_systems(
             Update,
             (
@@ -93,6 +94,13 @@ fn setup_colliders(mut commands: Commands) {
     }
 }
 
+/// Marker for the capsule so we can check if we clicked it
+/// and activate the menu again.
+#[derive(Component)]
+pub struct Capsule {
+    pub active: bool,
+}
+
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -114,11 +122,36 @@ fn setup(
     ));
 }
 
-/// Marker for the capsule so we can check if we clicked it
-/// and activate the menu again.
+/// Marker for the tools.
 #[derive(Component)]
-pub struct Capsule {
-    pub active: bool,
+pub struct ToolBench;
+
+fn spawn_tool_bench(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    existing_tooltip: Query<Entity, With<ToolBench>>,
+) {
+    for tooltip in &existing_tooltip {
+        commands.entity(tooltip).despawn();
+    }
+
+    // spawn the tools
+    let mut timer = TimerComp::from_elapsed(2.5);
+    timer.0.pause();
+    // this is the initial position of the scene
+    // the tooltip inside the scene is put to match bush.gltf
+    let init_pos = Vec3::new(0., 0., 0.);
+    commands.spawn((
+        SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("tools.glb"))),
+        timer,
+        ToolBench,
+        ShowOnAlarmTime::as_false(),
+        Dodgy {
+            init_pos,
+            last_pos: init_pos - Vec3::Y * 11.,
+            go_back: false,
+        },
+    ));
 }
 
 /// The player may bump with objects. If they have a "main" bone, this will cause a

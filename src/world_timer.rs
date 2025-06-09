@@ -14,7 +14,7 @@ use bevy::{
 };
 
 use crate::{
-    Capsule,
+    Capsule, ToolBench,
     config::GameState,
     dodgy::{ArchAnimation, Dodgy},
     player_movement::Player,
@@ -37,6 +37,7 @@ impl Plugin for DayNightPlugin {
                     lit_lamps,
                     sleep_in_capsule,
                     restart_day,
+                    respawn_tooltip,
                 )
                     .run_if(in_state(GameState::Above)),
             )
@@ -77,11 +78,20 @@ struct NighTimer;
 
 /// Marker for elements that appear at night.
 #[derive(Component)]
-struct ShowOnAlarmTime {
+pub struct ShowOnAlarmTime {
     /// If true, time to show the lights.
     show: bool,
     /// If true, swap `init_pos` and `last_pos` of [`Dodgy`] next time is read.
     swap_pos: bool,
+}
+
+impl ShowOnAlarmTime {
+    pub fn as_false() -> Self {
+        Self {
+            show: false,
+            swap_pos: false,
+        }
+    }
 }
 
 fn spawn_sun(
@@ -90,7 +100,7 @@ fn spawn_sun(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let day_secs = 120.;
+    let day_secs = 50.;
     let init_pos = Vec3::new(10.0, 4.0, 30.);
     let sun_radius = 100.;
     // to see the sun in the sky
@@ -170,10 +180,7 @@ fn spawn_sun(
                 go_back: false,
             },
             StateScoped(GameState::Above),
-            ShowOnAlarmTime {
-                show: false,
-                swap_pos: false,
-            },
+            ShowOnAlarmTime::as_false(),
             // since the light would disappear if not looking at it
             timer,
             Transform::from_translation(init_pos),
@@ -290,23 +297,34 @@ fn orbit_sun(
 fn show_alarm(
     mut commands: Commands,
     timer: Query<&TimerComp, With<NighTimer>>,
-    mut dodgers: Query<(&mut TimerComp, &mut Dodgy, &mut ShowOnAlarmTime), Without<NighTimer>>,
+    mut dodgers: Query<
+        (
+            &mut TimerComp,
+            &mut Dodgy,
+            &mut ShowOnAlarmTime,
+            Option<&ToolBench>,
+        ),
+        Without<NighTimer>,
+    >,
     mut capsule: Single<(Entity, &Transform, &mut Capsule)>,
 ) {
     let Ok(alarm) = timer.single() else {
         return;
     };
     if alarm.0.just_finished() {
-        for (mut dodgy_timer, mut dodgy, mut show) in dodgers.iter_mut() {
+        for (mut dodgy_timer, mut dodgy, mut show, maybe_tools) in dodgers.iter_mut() {
             dodgy_timer.0.reset();
             dodgy_timer.0.unpause();
             show.show = true;
-            if show.swap_pos {
-                *dodgy = Dodgy {
-                    init_pos: dodgy.last_pos,
-                    last_pos: dodgy.init_pos,
-                    go_back: dodgy.go_back,
-                };
+            // special case, don't swap for the ToolBench if it is not already up
+            if maybe_tools.is_none() || dodgy.last_pos.y > dodgy.init_pos.y {
+                if show.swap_pos {
+                    *dodgy = Dodgy {
+                        init_pos: dodgy.last_pos,
+                        last_pos: dodgy.init_pos,
+                        go_back: dodgy.go_back,
+                    };
+                }
             }
         }
         // show capsule.
@@ -362,16 +380,22 @@ fn lit_lamps(
 
 /// All the logic when a a day is restarted:
 ///
-/// * [x] Night timer restarts.
-/// * [x] ShowOnAlarmTime are hidden.
-/// * [x] Capsule is hidden.
-/// * [] Tools are replenished.
+/// * Night timer restarts.
+/// * ShowOnAlarmTime are hidden.
+/// * Capsule is hidden.
+/// * Tools are replenished.
 fn restart_day(
     mut commands: Commands,
     sun_timer: Single<&TimerComp, (With<Sun>, Without<NighTimer>)>,
     mut night_timer: Single<&mut TimerComp, (With<NighTimer>, Without<Sun>)>,
     mut dodgers: Query<
-        (&mut TimerComp, &mut ShowOnAlarmTime, &mut Dodgy, &Children),
+        (
+            &mut TimerComp,
+            &mut ShowOnAlarmTime,
+            &mut Dodgy,
+            &Children,
+            Option<&ToolBench>,
+        ),
         (Without<NighTimer>, Without<Sun>),
     >,
     mut lamps: Query<&mut Visibility, With<SpotLight>>,
@@ -380,13 +404,17 @@ fn restart_day(
     if sun_timer.0.just_finished() {
         night_timer.0.reset();
         // hide all dodgy elements that where shown on sun (`ShowOnAlarmTime`)
-        for (mut timer, mut show, mut dodgy, children) in &mut dodgers {
+        for (mut timer, mut show, mut dodgy, children, maybe_tools) in &mut dodgers {
             show.show = false;
-            *dodgy = Dodgy {
-                init_pos: dodgy.last_pos,
-                last_pos: dodgy.init_pos,
-                go_back: dodgy.go_back,
-            };
+            // special case, don't swap for the ToolBench
+            if maybe_tools.is_none() {
+                *dodgy = Dodgy {
+                    init_pos: dodgy.last_pos,
+                    last_pos: dodgy.init_pos,
+                    go_back: dodgy.go_back,
+                };
+            }
+
             // if the show up again, sawp init_pos and last_pos again
             show.swap_pos = true;
             // hide them
@@ -413,5 +441,32 @@ fn restart_day(
             TimerComp(Timer::from_seconds(2.0, TimerMode::Once)),
         ));
         capsule.2.active = true;
+    }
+}
+
+fn respawn_tooltip(
+    mut commands: Commands,
+    tooltip: Single<(Entity, &TimerComp, &ShowOnAlarmTime), With<ToolBench>>,
+    asset_server: Res<AssetServer>,
+) {
+    if tooltip.1.0.just_finished() && tooltip.2.show {
+        commands.entity(tooltip.0).despawn();
+        let mut timer = TimerComp::from_elapsed(2.5);
+        timer.0.pause();
+        // this is the initial position of the scene
+        // the tooltip inside the scene is put to match bush.gltf
+        let init_pos = Vec3::new(0., -11., 0.);
+        commands.spawn((
+            SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("tools.glb"))),
+            timer,
+            Transform::from_translation(init_pos),
+            ToolBench,
+            ShowOnAlarmTime::as_false(),
+            Dodgy {
+                init_pos,
+                last_pos: init_pos + Vec3::Y * 11.,
+                go_back: false,
+            },
+        ));
     }
 }
