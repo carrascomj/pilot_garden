@@ -1,7 +1,7 @@
 //! Game mechanic for a timer that forces the player to go to sleep.
 
 use std::{
-    f32::consts::{FRAC_PI_4, PI},
+    f32::consts::{FRAC_PI_2, PI},
     time::Duration,
 };
 
@@ -31,8 +31,14 @@ impl Plugin for DayNightPlugin {
         app.add_systems(OnEnter(GameState::Above), spawn_sun)
             .add_systems(
                 Update,
-                ((orbit_sun, show_alarm, lit_lamps, sleep_in_capsule)
-                    .run_if(not(in_state(GameState::Menu))),),
+                (
+                    orbit_sun,
+                    show_alarm,
+                    lit_lamps,
+                    sleep_in_capsule,
+                    restart_day,
+                )
+                    .run_if(in_state(GameState::Above)),
             )
             .add_systems(
                 PreUpdate,
@@ -67,6 +73,9 @@ struct Sun {
 }
 
 #[derive(Component)]
+struct NighTimer;
+
+#[derive(Component)]
 struct ShowOnAlarmTime(bool);
 
 fn spawn_sun(
@@ -75,37 +84,63 @@ fn spawn_sun(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let day_secs = 20.;
+    let day_secs = 120.;
     let init_pos = Vec3::new(10.0, 4.0, 30.);
-    let hyp = (init_pos.z * init_pos.z + init_pos.y * init_pos.y).sqrt();
+    let sun_radius = 100.;
+    // to see the sun in the sky
+    let sphere = SphereMeshBuilder::new(2., SphereKind::Ico { subdivisions: 3 }).build();
+    let sun_mesh = Mesh3d(meshes.add(sphere));
+    let sun_material = MeshMaterial3d(materials.add(StandardMaterial {
+        base_color: Color::srgb_from_array([1.0, 1.0, 1.0]),
+        unlit: true,
+        diffuse_transmission: 1.0,
+        ..default()
+    }));
+    let light = DirectionalLight {
+        color: Color::Srgba(Srgba {
+            red: 0.95,
+            green: 0.2,
+            blue: 0.4,
+            alpha: 1.0,
+        }),
+        shadows_enabled: true,
+        ..default()
+    };
+    let start_angle = FRAC_PI_2;
+
+    commands
+        .spawn((
+            StateScoped(GameState::Above),
+            Transform::from_translation(init_pos).looking_at(Vec3::X * 10.0, Vec3::NEG_Y),
+            TimerComp(Timer::new(
+                Duration::from_secs(day_secs as u64),
+                TimerMode::Repeating,
+            )),
+            Sun {
+                start_angle,
+                end_angle: start_angle - 2. * PI,
+                rad: sun_radius,
+            },
+        ))
+        .with_child((sun_mesh, sun_material, light, NoFrustumCulling));
+    // only for the night
     commands.spawn((
         StateScoped(GameState::Above),
-        DirectionalLight {
-            color: Color::Srgba(Srgba {
-                red: 0.95,
-                green: 0.2,
-                blue: 0.4,
-                alpha: 1.0,
-            }),
-            shadows_enabled: true,
-            ..default()
-        },
-        Transform::from_translation(init_pos).looking_at(Vec3::X * 10.0, Vec3::NEG_Y),
+        NighTimer,
         TimerComp(Timer::new(
-            Duration::from_secs(day_secs as u64),
+            Duration::from_secs((day_secs * 0.44) as u64),
             TimerMode::Once,
         )),
-        Sun {
-            start_angle: FRAC_PI_4,
-            end_angle: -PI + 1.5,
-            rad: hyp,
-        },
     ));
 
     // Streetlight to be shown at night
-    let sphere = SphereMeshBuilder::new(0.4, SphereKind::Ico { subdivisions: 4 }).build();
-    let bulb_mesh = Mesh3d(meshes.add(sphere));
-    let bulb_color = Vec3::new(0.8, 0.8, 0.8);
+    let cub = ConicalFrustum {
+        radius_top: 0.45,
+        radius_bottom: 0.52,
+        height: 0.8,
+    };
+    let bulb_mesh = Mesh3d(meshes.add(cub));
+    let bulb_color = Vec3::new(0.6, 0.8, 0.6);
     let bulb_color_more = Vec3::new(30., 30., 30.);
     let bulb_material = MeshMaterial3d(materials.add(StandardMaterial {
         base_color: Color::srgb_from_array(bulb_color.into()),
@@ -122,24 +157,22 @@ fn spawn_sun(
     ] {
         let mut timer = TimerComp::from_elapsed(2.5);
         timer.0.pause();
-        commands
-            .spawn((
-                Dodgy {
-                    init_pos,
-                    last_pos: init_pos + Vec3::Y * 11.,
-                    go_back: false,
-                },
-                StateScoped(GameState::Above),
-                ShowOnAlarmTime(false),
-                // since the light would disappear if not looking at it
-                timer,
-                Transform::from_translation(init_pos),
-                SceneRoot(
-                    asset_server
-                        .load(GltfAssetLabel::Scene(0).from_asset("streetlight.gltf#Streetlight")),
-                ),
-            ))
-            .with_child((
+        commands.spawn((
+            Dodgy {
+                init_pos,
+                last_pos: init_pos + Vec3::Y * 11.,
+                go_back: false,
+            },
+            StateScoped(GameState::Above),
+            ShowOnAlarmTime(false),
+            // since the light would disappear if not looking at it
+            timer,
+            Transform::from_translation(init_pos),
+            SceneRoot(
+                asset_server
+                    .load(GltfAssetLabel::Scene(0).from_asset("streetlight.gltf#Streetlight")),
+            ),
+            children![(
                 Visibility::Hidden,
                 NoFrustumCulling,
                 SpotLight {
@@ -153,20 +186,55 @@ fn spawn_sun(
                     shadows_enabled: true,
                     ..default()
                 },
-                bulb_material.clone(),
-                bulb_mesh.clone(),
                 Transform::from_xyz(0., 8.3, 0.).looking_at(Vec3::Y * -8.3, Vec3::NEG_Y),
-            ));
+                children![(
+                    bulb_material.clone(),
+                    bulb_mesh.clone(),
+                    // cancel rotation of parent light
+                    Transform::from_rotation(Quat::from_rotation_x(-PI / 2.)),
+                )]
+            )],
+        ));
     }
+
+    // commands.spawn((
+    //     Text::new("0"),
+    //     TextFont {
+    //         font: asset_server.load("fonts/Silkscreen-Bold.ttf"),
+    //         font_size: 15.0,
+    //         ..default()
+    //     },
+    //     TextColor(Color::WHITE),
+    //     TextShadow::default(),
+    //     ReportAngle,
+    // ));
 }
 
+#[derive(Component)]
+struct ReportAngle;
+
 /// Move the sun, keeping the radius around the Z origin and moving only Z and Y.
-fn orbit_sun(mut sun_query: Query<(&mut Transform, &Sun, &TimerComp, &mut DirectionalLight)>) {
-    let Ok((mut trans, sun, timer, mut light)) = sun_query.single_mut() else {
+fn orbit_sun(
+    mut sun_query: Query<(&mut Transform, &Sun, &TimerComp, &Children)>,
+    mut lights: Query<&mut DirectionalLight>,
+    // mut rep: Single<&mut Text, With<ReportAngle>>,
+) {
+    let Ok((mut trans, sun, timer, children)) = sun_query.single_mut() else {
         return;
     };
+    let mut light = None;
+    for child in children {
+        light = lights.get_mut(*child).ok();
+        break;
+    }
 
-    let u = timer.0.fraction();
+    let Some(mut light) = light else {
+        return;
+    };
+    let t = timer.0.fraction();
+    // normalize so that the day takes ~ 3/4 of the day.
+    let u = 3.0 * t * t - 2.0 * t * t * t;
+    // rep.0 = format!("{u:.2}");
     let theta = sun.start_angle + u * (sun.end_angle - sun.start_angle);
 
     // YZ-plane parametric circle
@@ -180,25 +248,17 @@ fn orbit_sun(mut sun_query: Query<(&mut Transform, &Sun, &TimerComp, &mut Direct
     // - 0.60-0.85  → “sunset” (orange)
     // - 0.85-1.00  → “night”  (deep blue)
 
-    const DAY_COLOUR: Vec3 = Vec3::new(0.95, 0.20, 0.40); // bright light-red
-    const SUNSET_COLOUR: Vec3 = Vec3::new(1.00, 0.55, 0.10); // orange
-    const NIGHT_COLOUR: Vec3 = Vec3::new(0.10, 0.15, 0.55); // blue
+    const MIDDAY_COLOUR: Vec3 = Vec3::new(0.8, 0.20, 0.40); // bright light-red
+    const DAWN_COLOUR: Vec3 = Vec3::new(1.0, 0., 0.); // blue
 
-    const DAY_END: f32 = 0.60; // 60 % of the timer → end of “day”
-    const SUNSET_END: f32 = 0.85; // 85 % of the timer → end of “sunset”
+    const DAY_END: f32 = 0.44; // 60 % of the timer → end of “day”
+    const SUNSET_END: f32 = 0.52; // 85 % of the timer → end of “sunset”
 
-    let rgb = if u < DAY_END {
-        // Day → hold the bright-red colour (or lerp to something else if you like)
-        DAY_COLOUR
-    } else if u < SUNSET_END {
-        // Day → Sunset
-        let t = (u - DAY_END) / (SUNSET_END - DAY_END); // 0‥1
-        DAY_COLOUR.lerp(SUNSET_COLOUR, t)
-    } else {
-        // Sunset → Night
-        let t = (u - SUNSET_END) / (1.0 - SUNSET_END); // 0‥1
-        SUNSET_COLOUR.lerp(NIGHT_COLOUR, t)
-    };
+    // [PI, 0] and [0, -PI] -> [0, 1] and [1, 0]
+    let polar_u = ((PI - if theta < 0. { -theta } else { theta }) / PI).clamp(0., 1.);
+
+    // Day -> hold the bright-red colour (or lerp to something else if you like)
+    let rgb = DAWN_COLOUR.lerp(MIDDAY_COLOUR, polar_u);
     light.color = Color::linear_rgb(rgb.x, rgb.y, rgb.z);
 
     // Dim the light at night so shadows disappear
@@ -214,12 +274,14 @@ fn orbit_sun(mut sun_query: Query<(&mut Transform, &Sun, &TimerComp, &mut Direct
         .max(0.05); // never pitch-black unless you want it
 }
 
+// NIGHT LOGIC
+
 /// Show [`Dodgy`] elements when the night is near and it's time to
 /// go back to the capsule.
 fn show_alarm(
     mut commands: Commands,
-    timer: Query<&TimerComp, With<Sun>>,
-    mut dodgers: Query<(&mut TimerComp, &mut ShowOnAlarmTime), Without<Sun>>,
+    timer: Query<&TimerComp, With<NighTimer>>,
+    mut dodgers: Query<(&mut TimerComp, &mut ShowOnAlarmTime), Without<NighTimer>>,
     mut capsule: Single<(Entity, &Transform, &mut Capsule)>,
 ) {
     let Ok(alarm) = timer.single() else {
@@ -273,9 +335,24 @@ fn lit_lamps(
         if timer.0.just_finished() && show.0 {
             for child in children {
                 if let Ok(mut vis) = lamps.get_mut(*child) {
-                    *vis = Visibility::Visible;
+                    vis.toggle_visible_hidden();
                 }
             }
         }
+    }
+}
+
+/// All the logic when a a day is restarted:
+///
+/// * [x] Night timer restarts.
+/// * [] ShowOnAlarmTime are hidden.
+/// * [] Capsule is hidden.
+/// * [] Tools are replenished.
+fn restart_day(
+    sun_timer: Single<&TimerComp, (With<Sun>, Without<NighTimer>)>,
+    mut night_timer: Single<&mut TimerComp, (With<NighTimer>, Without<Sun>)>,
+) {
+    if sun_timer.0.just_finished() {
+        night_timer.0.reset();
     }
 }
