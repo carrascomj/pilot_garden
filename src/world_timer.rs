@@ -364,29 +364,54 @@ fn lit_lamps(
 ///
 /// * [x] Night timer restarts.
 /// * [x] ShowOnAlarmTime are hidden.
-/// * [] Capsule is hidden.
+/// * [x] Capsule is hidden.
 /// * [] Tools are replenished.
 fn restart_day(
+    mut commands: Commands,
     sun_timer: Single<&TimerComp, (With<Sun>, Without<NighTimer>)>,
     mut night_timer: Single<&mut TimerComp, (With<NighTimer>, Without<Sun>)>,
     mut dodgers: Query<
-        (&mut TimerComp, &mut ShowOnAlarmTime, &mut Dodgy),
+        (&mut TimerComp, &mut ShowOnAlarmTime, &mut Dodgy, &Children),
         (Without<NighTimer>, Without<Sun>),
     >,
+    mut lamps: Query<&mut Visibility, With<SpotLight>>,
+    mut capsule: Single<(Entity, &Transform, &mut Capsule)>,
 ) {
     if sun_timer.0.just_finished() {
         night_timer.0.reset();
         // hide all dodgy elements that where shown on sun (`ShowOnAlarmTime`)
-        for (mut timer, mut show, mut dodgy) in &mut dodgers {
+        for (mut timer, mut show, mut dodgy, children) in &mut dodgers {
             show.show = false;
             *dodgy = Dodgy {
                 init_pos: dodgy.last_pos,
                 last_pos: dodgy.init_pos,
                 go_back: dodgy.go_back,
             };
+            // if the show up again, sawp init_pos and last_pos again
+            show.swap_pos = true;
             // hide them
             timer.0.reset();
             timer.0.unpause();
+            for child in children {
+                if let Ok(mut vis) = lamps.get_mut(*child) {
+                    vis.toggle_visible_hidden();
+                }
+            }
         }
+
+        // hide capsule
+        let mut cmd = commands.entity(capsule.0);
+        cmd.remove::<TimerComp>();
+        cmd.remove::<Dodgy>();
+        let trans = capsule.1.translation;
+        commands.entity(capsule.0).insert((
+            ArchAnimation {
+                init_pos: trans,
+                last_pos: trans - Vec3::Y * 10.,
+                peak_y: 5.,
+            },
+            TimerComp(Timer::from_seconds(2.0, TimerMode::Once)),
+        ));
+        capsule.2.active = true;
     }
 }
