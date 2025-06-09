@@ -188,7 +188,7 @@ fn spawn_bananite(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     asset_server: Res<AssetServer>,
 ) {
-    if keyboard_input.pressed(KeyCode::Digit7) {
+    if keyboard_input.just_pressed(KeyCode::Digit7) {
         for (x, y) in [(20.0, -2.0), (20.0, -5.0), (25.0, -5.0), (25.0, -2.0)] {
             let init_trans = Vec3::new(x, -5.0, y);
             let last_trans = Vec3::new(x, -0.2, y);

@@ -70,7 +70,7 @@ impl Collectible {
                 (PICK_OFFSET, REST_ROT)
             }
             Collectible::Seeds => {
-                const SEED_OFFSET: Vec3 = Vec3::new(1.6, -0.25, -2.4); // X right, Y up, Z forward
+                const SEED_OFFSET: Vec3 = Vec3::new(1.6, -0.25, -2.8); // X right, Y up, Z forward
                 (SEED_OFFSET, seeds_rot)
             }
             _ => {

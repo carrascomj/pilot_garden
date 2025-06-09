@@ -13,7 +13,12 @@ use bevy::{
     },
 };
 
-use crate::{config::GameState, dodgy::Dodgy};
+use crate::{
+    Capsule,
+    config::GameState,
+    dodgy::{ArchAnimation, Dodgy},
+    player_movement::Player,
+};
 
 /// Introduces a global timer that makes the day turn into night.
 /// At night, the player is hinted to go to the capsule and start again.
@@ -26,7 +31,8 @@ impl Plugin for DayNightPlugin {
         app.add_systems(OnEnter(GameState::Above), spawn_sun)
             .add_systems(
                 Update,
-                ((orbit_sun, show_alarm, lit_lamps).run_if(not(in_state(GameState::Menu))),),
+                ((orbit_sun, show_alarm, lit_lamps, sleep_in_capsule)
+                    .run_if(not(in_state(GameState::Menu))),),
             )
             .add_systems(
                 PreUpdate,
@@ -69,7 +75,7 @@ fn spawn_sun(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let day_secs = 120.;
+    let day_secs = 20.;
     let init_pos = Vec3::new(10.0, 4.0, 30.);
     let hyp = (init_pos.z * init_pos.z + init_pos.y * init_pos.y).sqrt();
     commands.spawn((
@@ -109,7 +115,11 @@ fn spawn_sun(
         ..default()
     }));
 
-    for init_pos in [Vec3::new(-6.0, -11., -8.0), Vec3::new(29.5, -11., 10.0)] {
+    for init_pos in [
+        Vec3::new(-7.0, -11., -8.0),
+        Vec3::new(29.5, -11., 8.7),
+        Vec3::new(29.5, -11., -8.),
+    ] {
         let mut timer = TimerComp::from_elapsed(2.5);
         timer.0.pause();
         commands
@@ -119,9 +129,9 @@ fn spawn_sun(
                     last_pos: init_pos + Vec3::Y * 11.,
                     go_back: false,
                 },
+                StateScoped(GameState::Above),
                 ShowOnAlarmTime(false),
                 // since the light would disappear if not looking at it
-                NoFrustumCulling,
                 timer,
                 Transform::from_translation(init_pos),
                 SceneRoot(
@@ -131,6 +141,7 @@ fn spawn_sun(
             ))
             .with_child((
                 Visibility::Hidden,
+                NoFrustumCulling,
                 SpotLight {
                     color: Color::srgb(0.98, 0.93, 0.5),
                     intensity: 200_000.0,
@@ -206,8 +217,10 @@ fn orbit_sun(mut sun_query: Query<(&mut Transform, &Sun, &TimerComp, &mut Direct
 /// Show [`Dodgy`] elements when the night is near and it's time to
 /// go back to the capsule.
 fn show_alarm(
+    mut commands: Commands,
     timer: Query<&TimerComp, With<Sun>>,
     mut dodgers: Query<(&mut TimerComp, &mut ShowOnAlarmTime), Without<Sun>>,
+    mut capsule: Single<(Entity, &Transform, &mut Capsule)>,
 ) {
     let Ok(alarm) = timer.single() else {
         return;
@@ -217,6 +230,36 @@ fn show_alarm(
             dodgy_timer.0.reset();
             dodgy_timer.0.unpause();
             show.0 = true;
+        }
+        // show capsule.
+        let mut cmd = commands.entity(capsule.0);
+        cmd.remove::<TimerComp>();
+        cmd.remove::<ArchAnimation>();
+        let trans = capsule.1.translation;
+        cmd.insert(Dodgy {
+            init_pos: trans,
+            last_pos: trans + Vec3::Y * 10.,
+            go_back: false,
+        });
+        capsule.2.active = true;
+    }
+}
+
+fn sleep_in_capsule(
+    mut next_state: ResMut<NextState<GameState>>,
+    mut capsule: Single<(&Transform, &mut Capsule), Without<Player>>,
+    player_q: Query<&Transform, (Without<Capsule>, With<Player>)>,
+) {
+    if capsule.1.active {
+        if let Ok(player_trans) = player_q.single() {
+            if player_trans
+                .translation
+                .distance_squared(capsule.0.translation)
+                < 2.
+            {
+                next_state.set(GameState::Menu);
+                capsule.1.active = false;
+            }
         }
     }
 }

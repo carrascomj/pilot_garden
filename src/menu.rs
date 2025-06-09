@@ -4,10 +4,7 @@ use bevy::{
     window::CursorOptions,
 };
 
-use crate::{
-    config::GameState,
-    player_movement::{Player, Velocity},
-};
+use crate::{Capsule, config::GameState, dodgy::ArchAnimation, world_timer::TimerComp};
 
 pub struct GameMenu;
 
@@ -22,7 +19,6 @@ impl Plugin for GameMenu {
             .add_systems(Update, button_system.run_if(in_state(GameState::Menu)))
             // will run even after GameState menu since it has to play the animation for awakening
             .add_systems(Last, update_time)
-            .add_systems(OnExit(GameState::Menu), eyes_wide_open)
             .add_plugins(UiMaterialPlugin::<HibernationMaterial>::default());
     }
 }
@@ -37,6 +33,8 @@ enum ButtonAction {
 /// Marker for start menu.
 #[derive(Component)]
 struct StartMenu;
+#[derive(Component)]
+struct RemoveOnStart;
 
 fn spawn_game_menu(
     mut commands: Commands,
@@ -79,7 +77,7 @@ fn spawn_game_menu(
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    StateScoped(GameState::Menu),
+                    RemoveOnStart,
                     children![
                         (
                             Button,
@@ -164,7 +162,7 @@ fn spawn_game_menu(
                 },
                 TextColor(Color::srgb(0.9, 0.2, 0.2)),
                 TextShadow::default(),
-                StateScoped(GameState::Menu),
+                RemoveOnStart,
             ),
         ],
     ));
@@ -181,9 +179,10 @@ fn spawn_game_menu(
 fn update_time(
     mut commands: Commands,
     time: Res<Time>,
+    mut next_state: ResMut<NextState<GameState>>,
     mut ui_materials: ResMut<Assets<HibernationMaterial>>,
     mut state_menu: Single<(Entity, &mut BackgroundColor), With<StartMenu>>,
-    mut player: Single<&mut Velocity, With<Player>>,
+    capsule: Single<(Entity, &Transform), With<Capsule>>,
 ) {
     for (_, material) in ui_materials.iter_mut() {
         if material.disolve_time > 0. {
@@ -192,7 +191,18 @@ fn update_time(
             let alpha = 1. - (diff - 3.0).clamp(0., 5.) / 5.0;
             state_menu.1.0.set_alpha(alpha);
             if diff > 5.0 {
-                commands.entity(state_menu.0).despawn()
+                next_state.set(GameState::Above);
+                commands.entity(state_menu.0).despawn();
+                //  slide the capsule into the floor
+                let trans = capsule.1.translation;
+                commands.entity(capsule.0).insert((
+                    ArchAnimation {
+                        init_pos: trans,
+                        last_pos: trans - Vec3::Y * 10.,
+                        peak_y: 5.,
+                    },
+                    TimerComp(Timer::from_seconds(2.0, TimerMode::Once)),
+                ));
             }
         }
         material.time = time.elapsed_secs();
@@ -216,7 +226,7 @@ impl UiMaterial for HibernationMaterial {
 }
 
 fn button_system(
-    mut next_state: ResMut<NextState<GameState>>,
+    mut commands: Commands,
     mut interaction_query: Query<
         (
             &Interaction,
@@ -229,6 +239,8 @@ fn button_system(
     >,
     mut text_query: Query<&mut TextColor>,
     mut window: Single<&mut Window>,
+    mut ui_materials: ResMut<Assets<HibernationMaterial>>,
+    to_rm_on_start: Query<Entity, With<RemoveOnStart>>,
 ) {
     for (interaction, mut box_shadow, mut border_color, children, action) in &mut interaction_query
     {
@@ -240,12 +252,17 @@ fn button_system(
                 *text_color = PRESSED_COLOR.into();
                 match action {
                     ButtonAction::StartGame => {
-                        next_state.set(GameState::Above);
                         window.cursor_options = CursorOptions {
                             visible: false,
                             grab_mode: bevy::window::CursorGrabMode::Locked,
                             ..default()
                         };
+                        for (_, material) in ui_materials.iter_mut() {
+                            material.disolve_time = material.time;
+                        }
+                        for to_rm in &to_rm_on_start {
+                            commands.entity(to_rm).despawn();
+                        }
                     }
                     _ => (),
                 }
@@ -261,13 +278,5 @@ fn button_system(
                 *text_color = BUTTON_COLOR.into();
             }
         }
-    }
-}
-
-/// Change disolve time, which is a uniform that will make the
-/// shade "open the eyes" and increase the opacity of the overlay.
-fn eyes_wide_open(mut ui_materials: ResMut<Assets<HibernationMaterial>>) {
-    for (_, material) in ui_materials.iter_mut() {
-        material.disolve_time = material.time;
     }
 }

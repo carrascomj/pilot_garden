@@ -1,6 +1,9 @@
 use bevy::{
+    pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
-    render::render_resource::{AsBindGroup, ShaderRef},
+    render::render_resource::{
+        AsBindGroup, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
+    },
 };
 use menu::GameMenu;
 use std::f32::consts::TAU;
@@ -107,8 +110,7 @@ fn setup(
         Mesh3d(meshes.add(Cylinder::new(1., 4.))),
         MeshMaterial3d(materials.add(CapsuleMaterial {})),
         Transform::from_translation(POS).with_rotation(Quat::from_rotation_y(3.14)),
-        Collider::from_translation(POS, Vec3::new(1.0, 3.0, 1.0)),
-        Capsule { active: true },
+        Capsule { active: false },
     ));
 }
 
@@ -198,5 +200,47 @@ impl Material for CapsuleMaterial {
 
     fn alpha_mode(&self) -> AlphaMode {
         AlphaMode::Blend
+    }
+
+    fn specialize(
+        _: &MaterialPipeline<Self>,
+        descriptor: &mut RenderPipelineDescriptor,
+        _: &bevy::render::mesh::MeshVertexBufferLayoutRef,
+        _: MaterialPipelineKey<Self>,
+    ) -> Result<(), SpecializedMeshPipelineError> {
+        descriptor.primitive.cull_mode = None; // draw both faces
+        Ok(())
+    }
+
+    fn vertex_shader() -> ShaderRef {
+        ShaderRef::Default
+    }
+
+    fn opaque_render_method(&self) -> bevy::pbr::OpaqueRendererMethod {
+        bevy::pbr::OpaqueRendererMethod::Forward
+    }
+
+    fn depth_bias(&self) -> f32 {
+        0.0
+    }
+
+    fn reads_view_transmission_texture(&self) -> bool {
+        false
+    }
+
+    fn prepass_vertex_shader() -> ShaderRef {
+        ShaderRef::Default
+    }
+
+    fn prepass_fragment_shader() -> ShaderRef {
+        ShaderRef::Default
+    }
+
+    fn deferred_vertex_shader() -> ShaderRef {
+        ShaderRef::Default
+    }
+
+    fn deferred_fragment_shader() -> ShaderRef {
+        ShaderRef::Default
     }
 }

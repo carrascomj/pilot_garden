@@ -1,7 +1,8 @@
 //! FPS-like pointer with a raycast coming from the view.
+//!
+//! This module handles all interactions when clicking the mouse.
 
 use crate::{
-    Capsule,
     config::{GameState, INTERACTION_DISTANCE},
     digging::{Collectible, Diggable, Life, Minable, OnHand, RemoveTimer, SeedsPlaced},
     player_movement::{Collider, Player},
@@ -20,7 +21,7 @@ impl Plugin for FirstPersonPickerPlugin {
             .init_resource::<Inventory>()
             .add_systems(
                 Update,
-                (cast_player_ray, manage_inventory).run_if(in_state(GameState::Above)),
+                (cast_player_ray, manage_inventory, eat_food).run_if(in_state(GameState::Above)),
             );
         if cfg!(debug_assertions) {
             app.init_gizmo_group::<MyRoundGizmos>()
@@ -46,16 +47,13 @@ fn filter_recursive(
         &mut OnHand,
         &mut TimerComp,
     )>,
-    capsule_query: Query<&Capsule>,
 ) -> bool {
     if let Ok(e) = children.get(child) {
         let contains = match inv {
             Inventory::Shovel(_) | Inventory::Seeds(_) => diggables.contains(e.0),
             Inventory::MiningPick => find_recursive_minable(e.0, minables, children),
-            Inventory::Food(_) => true,
-            Inventory::None => false,
-        } || collectables.contains(e.0)
-            || capsule_query.contains(e.0);
+            _ => false,
+        } || collectables.contains(e.0);
         contains
     } else {
         false
@@ -100,7 +98,6 @@ fn cast_player_ray(
     mut commands: Commands,
     mut seeds_event: EventWriter<SeedsPlaced>,
     mut inventory: ResMut<Inventory>,
-    mut next_state: ResMut<NextState<GameState>>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     mut ray_cast: MeshRayCast,
     player_q: Single<&GlobalTransform, With<Player>>,
@@ -116,7 +113,6 @@ fn cast_player_ray(
     )>,
     children: Query<&ChildOf>,
     player_query: Query<Entity, With<Player>>,
-    capsule_query: Query<&Capsule>,
 ) {
     // Cast an automatically moving ray and bounce it off of surfaces
     let ray_pos = player_q.translation();
@@ -130,7 +126,6 @@ fn cast_player_ray(
             &minables,
             children,
             &collectables,
-            capsule_query,
         )
     };
 
@@ -152,12 +147,6 @@ fn cast_player_ray(
             *cross_q.1 = BackgroundColor(Color::BLACK);
             cross_q.2.color = Color::BLACK;
             if mouse_button_input.just_pressed(MouseButton::Left) {
-                if let Ok(capsule) = capsule_query.get(*trigger) {
-                    if capsule.active {
-                        next_state.set(GameState::Menu);
-                    }
-                    return;
-                }
                 if let Ok((ent, mut transform, collectible, mut on_hand, _)) =
                     collectables.get_mut(*trigger)
                 {
@@ -189,6 +178,8 @@ fn cast_player_ray(
                     if on_hand.active {
                         timer.0.unpause();
                         timer.0.reset();
+                    } else {
+                        continue;
                     }
                     // decrease life or despawn object
                     if diggables.contains(*trigger) && inventory.is_seeds() {
@@ -311,6 +302,22 @@ fn manage_inventory(
         }
     }
 }
+
+fn eat_food(mut inventory: ResMut<Inventory>, mouse_button_input: Res<ButtonInput<MouseButton>>) {
+    if mouse_button_input.just_pressed(MouseButton::Left) {
+        match inventory.as_mut() {
+            &mut Inventory::Food(ref mut counter) => {
+                if *counter > 0 {
+                    *counter -= 1
+                } else {
+                    return;
+                }
+            }
+            _ => (),
+        }
+    }
+}
+
 // Gizmos to debug colliders.
 #[derive(Default, Reflect, GizmoConfigGroup)]
 struct MyRoundGizmos;
