@@ -6,11 +6,12 @@ use bevy::{
     },
 };
 use menu::GameMenu;
-use std::f32::consts::TAU;
+use std::{f32::consts::TAU, time::Duration};
 
 mod config;
 mod digging;
 mod dodgy;
+mod killer_arms;
 mod menu;
 mod player_movement;
 mod point_raycast;
@@ -18,6 +19,7 @@ mod world_timer;
 
 use digging::{DiggingPlugin, Life, Minable};
 use dodgy::{Dodgy, DodgyPlugin};
+use killer_arms::{KillerArmPlugin, KillerHead, KillerPoint, KillerTimer};
 use player_movement::{Collider, Player, PlayerPlugin};
 use point_raycast::FirstPersonPickerPlugin;
 use world_timer::{DayNightPlugin, ShowOnAlarmTime, TimerComp};
@@ -60,12 +62,13 @@ fn main() {
         )
         // custom game mechanics
         .add_plugins((
-            FirstPersonPickerPlugin,
-            PlayerPlugin,
-            DodgyPlugin,
-            DiggingPlugin,
-            GameMenu,
             DayNightPlugin,
+            DiggingPlugin,
+            DodgyPlugin,
+            FirstPersonPickerPlugin,
+            GameMenu,
+            KillerArmPlugin,
+            PlayerPlugin,
         ))
         .add_plugins(MaterialPlugin::<CapsuleMaterial>::default())
         .run();
@@ -196,6 +199,18 @@ fn find_main_bone(
             commands
                 .entity(entity)
                 .insert((Minable {}, Life::JustSpawned));
+        } else if name.as_str() == "point_bone" {
+            commands.entity(entity).insert(KillerPoint);
+        } else if name.as_str() == "ik_target" {
+            let dur = Duration::from_secs_f32(1.);
+            let mut laser_timer = TimerComp(Timer::new(dur, TimerMode::Once));
+            laser_timer.0.pause();
+            let dur = Duration::from_secs_f32(5.);
+            let mut killer_timer = KillerTimer(Timer::new(dur, TimerMode::Once));
+            killer_timer.0.pause();
+            commands
+                .entity(entity)
+                .insert((KillerHead, laser_timer, killer_timer));
         }
     }
 }

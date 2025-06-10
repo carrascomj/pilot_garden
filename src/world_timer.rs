@@ -11,6 +11,7 @@ use crate::{
     Capsule, ToolBench,
     config::GameState,
     dodgy::{ArchAnimation, Dodgy},
+    killer_arms::KillerHead,
     player_movement::Player,
 };
 
@@ -67,8 +68,14 @@ struct Sun {
     rad: f32,
 }
 
+/// Marker for the timer that marks the night. When finished,
+/// starts to show night-only dodger elements (streetlights, etc.).
 #[derive(Component)]
-struct NighTimer;
+struct NightTimer;
+
+/// Marker that makes the lasers kill the player on sight if finished.
+#[derive(Component)]
+struct DeadTimer;
 
 /// Marker for elements that appear at night.
 #[derive(Component)]
@@ -94,7 +101,7 @@ fn spawn_sun(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let day_secs = 30.;
+    let day_secs = 40.;
     let init_pos = Vec3::new(10.0, 4.0, 30.);
     let sun_radius = 100.;
     let light = DirectionalLight {
@@ -127,7 +134,7 @@ fn spawn_sun(
     // only for the night
     commands.spawn((
         StateScoped(GameState::Above),
-        NighTimer,
+        NightTimer,
         TimerComp(Timer::new(
             Duration::from_secs((day_secs * 0.44) as u64),
             TimerMode::Once,
@@ -289,7 +296,7 @@ fn orbit_sun(
 /// go back to the capsule.
 fn show_alarm(
     mut commands: Commands,
-    timer: Query<&TimerComp, With<NighTimer>>,
+    timer: Query<&TimerComp, With<NightTimer>>,
     mut dodgers: Query<
         (
             &mut TimerComp,
@@ -297,7 +304,7 @@ fn show_alarm(
             &mut ShowOnAlarmTime,
             Option<&ToolBench>,
         ),
-        Without<NighTimer>,
+        Without<NightTimer>,
     >,
     mut capsule: Single<(Entity, &Transform, &mut Capsule)>,
 ) {
@@ -377,10 +384,11 @@ fn lit_lamps(
 /// * ShowOnAlarmTime are hidden.
 /// * Capsule is hidden.
 /// * Tools are replenished.
+/// * Laser Timers are restarted.
 fn restart_day(
     mut commands: Commands,
-    sun_timer: Single<&TimerComp, (With<Sun>, Without<NighTimer>)>,
-    mut night_timer: Single<&mut TimerComp, (With<NighTimer>, Without<Sun>)>,
+    sun_timer: Single<&TimerComp, (With<Sun>, Without<NightTimer>, Without<KillerHead>)>,
+    mut night_timer: Single<&mut TimerComp, (With<NightTimer>, Without<Sun>, Without<KillerHead>)>,
     mut dodgers: Query<
         (
             &mut TimerComp,
@@ -389,10 +397,11 @@ fn restart_day(
             &Children,
             Option<&ToolBench>,
         ),
-        (Without<NighTimer>, Without<Sun>),
+        (Without<NightTimer>, Without<Sun>, Without<KillerHead>),
     >,
     mut lamps: Query<&mut Visibility, With<SpotLight>>,
     mut capsule: Single<(Entity, &Transform, &mut Capsule)>,
+    mut killers: Query<&mut TimerComp, (With<KillerHead>, Without<NightTimer>, Without<Sun>)>,
 ) {
     if sun_timer.0.just_finished() {
         night_timer.0.reset();
@@ -434,6 +443,12 @@ fn restart_day(
             TimerComp(Timer::from_seconds(2.0, TimerMode::Once)),
         ));
         capsule.2.active = true;
+
+        // deactivate lasers
+        for mut laser_timer in &mut killers {
+            laser_timer.0.pause();
+            laser_timer.0.reset();
+        }
     }
 }
 

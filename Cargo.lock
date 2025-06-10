@@ -103,6 +103,7 @@ name = "and_you_will_be_happy"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "bevy_mod_inverse_kinematics",
  "fastrand",
  "log",
  "smallvec",
@@ -864,6 +865,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8bb60c753b968a2de0fd279b76a3d19517695e771edb4c23575c7f92156315de"
 dependencies = [
  "glam",
+]
+
+[[package]]
+name = "bevy_mod_inverse_kinematics"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e04ed52cda965c30566640f3395e7badeaf56821d8d8fb64bef74abb3aca1708"
+dependencies = [
+ "bevy",
 ]
 
 [[package]]

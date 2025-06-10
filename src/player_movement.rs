@@ -91,7 +91,6 @@ fn load_skybox(
     if *loaded || !asset_server.is_loaded(loading_sky.handle.id()) {
         return;
     }
-    println!("loading skybox");
     *loaded = true;
     let image = images.get_mut(&mut loading_sky.handle).unwrap();
     let array_layers = 6;
