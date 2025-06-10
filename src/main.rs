@@ -17,7 +17,7 @@ mod player_movement;
 mod point_raycast;
 mod world_timer;
 
-use digging::{DiggingPlugin, Life, Minable};
+use digging::{DiggingPlugin, Life, Minable, OneSizeCollider};
 use dodgy::{Dodgy, DodgyPlugin};
 use killer_arms::{KillerArmPlugin, KillerHead, KillerPoint, KillerTimer};
 use player_movement::{Collider, Player, PlayerPlugin};
@@ -76,10 +76,12 @@ fn main() {
 
 /// Setup colliders. Since the setup is very simple, we set colliders manually;
 /// they only interact with the player; and they are independent from the 3D models.
-fn setup_colliders(mut commands: Commands) {
+fn setup_colliders(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     for (half_x, half_z, x, z, mult_y, y) in [
+        // special right wall to surround the fake bush
+        (28.0, 2.0, 3.0, 10.0, 8.0, 1.0),
+        (10.0, 2.0, 24.0, 10.0, 8.0, 1.0),
         // walls around the garden
-        (38.0, 2.0, 11.0, 10.0, 8.0, 1.0),
         (38.0, 2.0, 11.0, -9.5, 8.0, 1.0),
         (2.0, 20.0, -9.5, 0.0, 8.0, 1.0),
         (2.0, 20.0, 30.5, 0.0, 8.0, 1.0),
@@ -87,14 +89,22 @@ fn setup_colliders(mut commands: Commands) {
         (0.5, 10.0, 18.2, -4.0, 2.0, 1.0),
         (7.5, 0.5, 26.0, 1.35, 2.0, 1.0),
         // floor (subdivided to accomodate dirt colliders)
-        (26.0, 20.0, 5.0, 0.0, 1.0, -1.0),
-        (12.0, 10.0, 24.0, 6.0, 1.0, -1.0),
+        (26.0, 22.0, 5.0, 0.0, 1.0, -1.0),
+        (12.0, 12.0, 24.0, 7.0, 1.0, -1.0),
+        // fake bush zone
+        (20.0, 20.0, 24.0, 20.0, 1.0, -4.0),
     ] {
         let cub = Cuboid::new(half_x, GROUND_Y * mult_y, half_z);
         let cub_transform = Transform::from_xyz(x, y, z);
         let cub_collider = Collider::from((&cub, &cub_transform));
         commands.spawn((cub_transform, cub_collider));
     }
+    let (half_x, half_z, x, z, mult_y, y) = (38.0, 2.0, 11.0, 10.0, 30., -20.0);
+
+    // invisible mesh to protect the player from lasers
+    let cub = Cuboid::new(half_x, GROUND_Y * mult_y, half_z);
+    let cub_transform = Transform::from_xyz(x, y, z);
+    commands.spawn((Mesh3d(meshes.add(cub)), cub_transform));
 }
 
 /// Marker for the capsule so we can check if we clicked it
@@ -153,6 +163,7 @@ fn spawn_tool_bench(
             init_pos,
             last_pos: init_pos - Vec3::Y * 11.,
             go_back: false,
+            ignore_viewing: false,
         },
     ));
 }
@@ -194,14 +205,23 @@ fn find_main_bone(
                 rest_rot: transform.rotation,
                 active: true,
             });
+        } else if name.as_str().starts_with("one_sized") {
+            // fake bushes can be removed with the mining pick
+            commands.entity(entity).insert(OneSizeCollider);
         } else if name.as_str() == "fakebush" {
             // fake bushes can be removed with the mining pick
-            commands
-                .entity(entity)
-                .insert((Minable {}, Life::JustSpawned));
+            const BUSH_TRANS: Vec3 = Vec3::new(18., 2., 10.);
+            const SIZE: Vec3 = Vec3::new(1.0, 2.0, 1.0);
+            commands.entity(entity).insert((
+                Minable {},
+                Life::JustSpawned,
+                Collider::from_translation(BUSH_TRANS + Vec3::Y * 0.5, SIZE),
+            ));
         } else if name.as_str() == "point_bone" {
+            // this is the object bone of an IK
             commands.entity(entity).insert(KillerPoint);
         } else if name.as_str() == "ik_target" {
+            // this is the target bone of an IK
             let dur = Duration::from_secs_f32(1.);
             let mut laser_timer = TimerComp(Timer::new(dur, TimerMode::Once));
             laser_timer.0.pause();
@@ -211,9 +231,12 @@ fn find_main_bone(
                 can_kill: false,
             };
             killer_timer.timer.pause();
-            commands
-                .entity(entity)
-                .insert((KillerHead, laser_timer, killer_timer));
+            commands.entity(entity).insert((
+                KillerHead,
+                laser_timer,
+                killer_timer,
+                StateScoped(GameState::Above),
+            ));
         }
     }
 }

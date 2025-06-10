@@ -81,6 +81,9 @@ impl Collectible {
     }
 }
 
+#[derive(Component)]
+pub struct OneSizeCollider;
+
 /// Attaches [`Diggable`] markers to gltf objects named as `crop_ground`.
 fn add_dirt_colliders(
     trigger: Trigger<SceneInstanceReady>,
@@ -90,7 +93,7 @@ fn add_dirt_colliders(
     let _e = trigger.target();
     for (ent, name) in add_names.iter() {
         if name.as_str().starts_with("crop_ground") {
-            commands.entity(ent).insert(Diggable {});
+            commands.entity(ent).insert((Diggable {}, OneSizeCollider));
         }
     }
 }
@@ -98,9 +101,8 @@ fn add_dirt_colliders(
 /// Calculate and attach colliders to [`Diggable`] entities.
 fn add_colliders_to_diggables(
     mut commands: Commands,
-    diggables: Populated<(Entity, &GlobalTransform), (With<Diggable>, Without<Collider>)>,
+    diggables: Populated<(Entity, &GlobalTransform), (With<OneSizeCollider>, Without<Collider>)>,
 ) {
-    // TODO: check these bounds
     let size = Vec3::new(1.0, 0.5, 1.0);
 
     for (ent, trans) in diggables.iter() {

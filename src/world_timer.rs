@@ -170,6 +170,7 @@ fn spawn_sun(
                 init_pos,
                 last_pos: init_pos + Vec3::Y * 11.,
                 go_back: false,
+                ignore_viewing: false,
             },
             StateScoped(GameState::Above),
             ShowOnAlarmTime::as_false(),
@@ -323,6 +324,7 @@ fn show_alarm(
                         init_pos: dodgy.last_pos,
                         last_pos: dodgy.init_pos,
                         go_back: dodgy.go_back,
+                        ignore_viewing: dodgy.ignore_viewing,
                     };
                 }
             }
@@ -336,6 +338,7 @@ fn show_alarm(
             init_pos: trans,
             last_pos: trans + Vec3::Y * 10.,
             go_back: false,
+            ignore_viewing: false,
         });
         capsule.2.active = true;
     }
@@ -414,6 +417,7 @@ fn restart_day(
                     init_pos: dodgy.last_pos,
                     last_pos: dodgy.init_pos,
                     go_back: dodgy.go_back,
+                    ignore_viewing: dodgy.ignore_viewing,
                 };
             }
 
@@ -474,6 +478,7 @@ fn respawn_tooltip(
                 init_pos,
                 last_pos: init_pos + Vec3::Y * 11.,
                 go_back: false,
+                ignore_viewing: false,
             },
         ));
     }

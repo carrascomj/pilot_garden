@@ -1,7 +1,5 @@
 //! Mechanic for killer arms that appear at night at kill the player.
 
-use std::time::Duration;
-
 use bevy::{ecs::query::QueryFilter, prelude::*};
 use bevy_mod_inverse_kinematics::{IkConstraint, InverseKinematicsPlugin};
 
@@ -28,7 +26,6 @@ impl Plugin for KillerArmPlugin {
                     point_at_player,
                     activate_lasers,
                     draw_lasers,
-                    // kill_with_lasers,
                 )
                     .run_if(in_state(GameState::Above)),
             );
@@ -58,9 +55,7 @@ fn spawn_killing_arm(mut commands: Commands, asset_server: Res<AssetServer>) {
         Vec3::new(-14., 0., 0.),
     ] {
         let show_time = 10.;
-        let dur = Duration::from_secs_f32(show_time);
-        let mut timer = TimerComp(Timer::new(dur, TimerMode::Once));
-        timer.0.set_elapsed(Duration::ZERO);
+        let mut timer = TimerComp::from_elapsed(show_time);
         timer.0.pause();
         let init_pos = killer_position - (Vec3::Y * 100.);
         commands.spawn((
@@ -75,6 +70,7 @@ fn spawn_killing_arm(mut commands: Commands, asset_server: Res<AssetServer>) {
                 init_pos,
                 last_pos: killer_position,
                 go_back: false,
+                ignore_viewing: true,
             },
         ));
     }
@@ -113,12 +109,13 @@ fn find_entity<F: QueryFilter, F2: QueryFilter>(
 ) -> Result<Entity, ()> {
     if let Ok(children) = parents.get(root) {
         for child in children {
-            if let Ok((ik_bone, name)) = names.get(*child) {
+            if let Ok((maybe_bone_ent, name)) = names.get(*child) {
                 if name.as_str().starts_with(look_for_name) {
                     // base case
-                    return Ok(ik_bone);
-                } else {
-                    return find_entity(ik_bone, look_for_name, parents, names);
+                    return Ok(maybe_bone_ent);
+                } else if let Ok(found) = find_entity(maybe_bone_ent, look_for_name, parents, names)
+                {
+                    return Ok(found);
                 }
             }
         }
@@ -145,25 +142,52 @@ fn point_at_player(
 
 const MAGENTA: Color = Color::srgb(1.00, 0.30, 0.90);
 
+/// Activate the laser timers (one for Killing and one for showing the laser)
+/// by walking down the hierarchy:
+///
+/// KillerArm, SceneInstance
+/// |----> RandomEntity
+///        |---> Armature (has name)
+///              |----> IK bone
+///              |----> Bone
+///                     |----> Bone
+///                            |----> Bone
+///                                   |----> Bone with KillerHead Component
 fn activate_lasers(
-    killers: Query<(&TimerComp, &ShowOnAlarmTime), (With<KillerArm>, Without<KillerHead>)>,
+    killers: Query<
+        (&TimerComp, &ShowOnAlarmTime, &Children),
+        (With<KillerArm>, Without<KillerHead>),
+    >,
     mut killer_heads: Query<
         (&mut TimerComp, &mut KillerTimer),
         (With<KillerHead>, Without<KillerArm>),
     >,
+    parents: Query<&Children>,
+    names: Query<(Entity, &Name)>,
 ) {
-    for (dodgy_timer, show) in &killers {
+    for (dodgy_timer, show, children) in &killers {
         // TODO: should go down the hierarchy.
         if dodgy_timer.0.just_finished() && show.show {
-            for (mut laser_timer, mut killer_timer) in &mut killer_heads {
-                if laser_timer.0.paused() {
-                    laser_timer.0.unpause();
-                    laser_timer.0.reset();
-                    killer_timer.timer.unpause();
-                    killer_timer.can_kill = true;
+            for child in children {
+                if let Ok(down_children) = parents.get(*child) {
+                    for down_child in down_children {
+                        if let Ok(ik_bone) = find_entity(*down_child, "ik_target", parents, names) {
+                            if let Ok((mut laser_timer, mut killer_timer)) =
+                                killer_heads.get_mut(ik_bone)
+                            {
+                                if laser_timer.0.paused() {
+                                    laser_timer.0.unpause();
+                                    laser_timer.0.reset();
+                                    killer_timer.timer.unpause();
+                                    killer_timer.can_kill = true;
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
+        // }
     }
 }
 
@@ -200,6 +224,7 @@ fn draw_lasers(
                 if killer_timer.timer.just_finished() && killer_timer.can_kill {
                     if player.0 == *target_entity {
                         next_state.set(GameState::Menu);
+                        break;
                     } else {
                         killer_timer.can_kill = false;
                     }

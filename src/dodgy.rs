@@ -74,6 +74,7 @@ pub struct Dodgy {
     pub last_pos: Vec3,
     /// If true: go back to `init_pos` before the user looks at it.
     pub go_back: bool,
+    pub ignore_viewing: bool,
 }
 
 fn point_in_view(camera: &Camera, cam_tf: &GlobalTransform, world_pos: Vec3) -> bool {
@@ -91,7 +92,7 @@ fn activate_dodge(
     let (cam, gt_cam) = camera.deref();
     for (gt, dodger, mut timer) in &mut dodgers {
         let visible = point_in_view(cam, gt_cam, gt.translation());
-        if visible {
+        if visible && !dodger.ignore_viewing {
             timer.0.pause();
             if dodger.go_back {
                 timer.0.reset();
@@ -196,6 +197,7 @@ fn spawn_bananite(
                     init_pos: init_trans,
                     last_pos: last_trans,
                     go_back: false,
+                    ignore_viewing: false,
                 },
                 Transform::from_translation(init_trans),
                 Collider::from_translation(last_trans, Vec3::new(1.0, 4.0, 1.0)),
@@ -225,6 +227,7 @@ fn plant_bananite_on_seeds(
                 init_pos: init_trans,
                 last_pos: last_trans,
                 go_back: false,
+                ignore_viewing: false,
             },
             Transform::from_translation(init_trans),
             Bananite,
