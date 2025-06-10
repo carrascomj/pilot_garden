@@ -206,8 +206,11 @@ fn find_main_bone(
             let mut laser_timer = TimerComp(Timer::new(dur, TimerMode::Once));
             laser_timer.0.pause();
             let dur = Duration::from_secs_f32(5.);
-            let mut killer_timer = KillerTimer(Timer::new(dur, TimerMode::Once));
-            killer_timer.0.pause();
+            let mut killer_timer = KillerTimer {
+                timer: Timer::new(dur, TimerMode::Once),
+                can_kill: false,
+            };
+            killer_timer.timer.pause();
             commands
                 .entity(entity)
                 .insert((KillerHead, laser_timer, killer_timer));

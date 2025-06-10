@@ -1,5 +1,7 @@
 //! Mechanic for killer arms that appear at night at kill the player.
 
+use std::time::Duration;
+
 use bevy::{ecs::query::QueryFilter, prelude::*};
 use bevy_mod_inverse_kinematics::{IkConstraint, InverseKinematicsPlugin};
 
@@ -26,6 +28,7 @@ impl Plugin for KillerArmPlugin {
                     point_at_player,
                     activate_lasers,
                     draw_lasers,
+                    // kill_with_lasers,
                 )
                     .run_if(in_state(GameState::Above)),
             );
@@ -36,7 +39,10 @@ impl Plugin for KillerArmPlugin {
 #[derive(Component)]
 pub struct KillerPoint;
 #[derive(Component)]
-pub struct KillerTimer(pub Timer);
+pub struct KillerTimer {
+    pub timer: Timer,
+    pub can_kill: bool,
+}
 /// The bone of the visible head of the bone (object of IK).
 #[derive(Component)]
 pub struct KillerHead;
@@ -52,7 +58,9 @@ fn spawn_killing_arm(mut commands: Commands, asset_server: Res<AssetServer>) {
         Vec3::new(-14., 0., 0.),
     ] {
         let show_time = 10.;
-        let mut timer = TimerComp::from_elapsed(show_time);
+        let dur = Duration::from_secs_f32(show_time);
+        let mut timer = TimerComp(Timer::new(dur, TimerMode::Once));
+        timer.0.set_elapsed(Duration::ZERO);
         timer.0.pause();
         let init_pos = killer_position - (Vec3::Y * 100.);
         commands.spawn((
@@ -130,7 +138,7 @@ fn point_at_player(
         if let Ok(parent_trans) = parents.get(parent.0) {
             // substract parent
             let look_at = player.translation - parent_trans.translation();
-            *point = point.with_translation(look_at);
+            *point = point.with_translation(look_at).looking_at(look_at, Vec3::Y);
         }
     }
 }
@@ -138,16 +146,21 @@ fn point_at_player(
 const MAGENTA: Color = Color::srgb(1.00, 0.30, 0.90);
 
 fn activate_lasers(
-    killers: Query<&TimerComp, (With<KillerArm>, Without<KillerHead>)>,
-    mut killer_heads: Query<&mut TimerComp, (With<KillerHead>, Without<KillerArm>)>,
+    killers: Query<(&TimerComp, &ShowOnAlarmTime), (With<KillerArm>, Without<KillerHead>)>,
+    mut killer_heads: Query<
+        (&mut TimerComp, &mut KillerTimer),
+        (With<KillerHead>, Without<KillerArm>),
+    >,
 ) {
-    for dodgy_timer in &killers {
+    for (dodgy_timer, show) in &killers {
         // TODO: should go down the hierarchy.
-        if dodgy_timer.0.just_finished() {
-            for mut ik_bone_timer in &mut killer_heads {
-                if ik_bone_timer.0.paused() {
-                    ik_bone_timer.0.unpause();
-                    ik_bone_timer.0.reset();
+        if dodgy_timer.0.just_finished() && show.show {
+            for (mut laser_timer, mut killer_timer) in &mut killer_heads {
+                if laser_timer.0.paused() {
+                    laser_timer.0.unpause();
+                    laser_timer.0.reset();
+                    killer_timer.timer.unpause();
+                    killer_timer.can_kill = true;
                 }
             }
         }
@@ -156,17 +169,45 @@ fn activate_lasers(
 
 fn draw_lasers(
     mut gizmos: Gizmos,
-    killer_points: Query<(&GlobalTransform, &TimerComp), (With<KillerHead>, Without<Player>)>,
-    player: Single<&Transform, (With<Player>, Without<KillerPoint>)>,
+    mut ray_cast: MeshRayCast,
+    mut next_state: ResMut<NextState<GameState>>,
+    time: Res<Time>,
+    mut killer_points: Query<
+        (&GlobalTransform, &TimerComp, &mut KillerTimer),
+        (With<KillerHead>, Without<Player>),
+    >,
+    player: Single<(Entity, &Transform), (With<Player>, Without<KillerPoint>)>,
 ) {
-    for (trans, timer) in killer_points {
+    for (trans, timer, mut killer_timer) in &mut killer_points {
         if timer.0.finished() {
-            gizmos.line(
-                trans.translation(),
-                player.translation - Vec3::Y,
-                MAGENTA,
-                // Color::BLACK.mix(&MAGENTA, timer.0.fraction()),
-            );
+            let ray_pos = trans.translation();
+            let start = ray_pos;
+            let end = player.1.translation;
+            let ray_dir = (end - start).normalize();
+
+            let ray = Ray3d::new(ray_pos, Dir3::new(ray_dir).unwrap());
+
+            if let Some((target_entity, hit)) = ray_cast
+                .cast_ray(ray, &MeshRayCastSettings::default().always_early_exit())
+                .first()
+            {
+                gizmos.line(
+                    trans.translation(),
+                    hit.point - Vec3::Y,
+                    // MAGENTA,
+                    Color::BLACK.mix(&MAGENTA, killer_timer.timer.fraction()),
+                );
+                if killer_timer.timer.just_finished() && killer_timer.can_kill {
+                    if player.0 == *target_entity {
+                        next_state.set(GameState::Menu);
+                    } else {
+                        killer_timer.can_kill = false;
+                    }
+                }
+            }
+        }
+        if !killer_timer.timer.finished() {
+            killer_timer.timer.tick(time.delta());
         }
     }
 }

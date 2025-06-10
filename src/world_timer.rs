@@ -81,7 +81,7 @@ struct DeadTimer;
 #[derive(Component)]
 pub struct ShowOnAlarmTime {
     /// If true, time to show the lights.
-    show: bool,
+    pub show: bool,
     /// If true, swap `init_pos` and `last_pos` of [`Dodgy`] next time is read.
     swap_pos: bool,
 }

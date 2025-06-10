@@ -51,7 +51,16 @@ struct PhysicalTranslation(Vec3);
 struct PreviousPhysicalTranslation(Vec3);
 
 /// Create the player with the camera (FPS-like)
-fn spawn_player(mut commands: Commands, asset_server: ResMut<AssetServer>) {
+fn spawn_player(
+    mut commands: Commands,
+    asset_server: ResMut<AssetServer>,
+    mut meshes: ResMut<Assets<Mesh>>,
+) {
+    let cub = Capsule3d {
+        radius: 1.0,
+        half_length: 1.0,
+    };
+    let capsule_mesh = Mesh3d(meshes.add(cub));
     commands.spawn((
         Camera3d::default(),
         Projection::Perspective(PerspectiveProjection {
@@ -69,6 +78,7 @@ fn spawn_player(mut commands: Commands, asset_server: ResMut<AssetServer>) {
         PhysicalTranslation(START_POS),
         PreviousPhysicalTranslation(START_POS),
         Player {},
+        capsule_mesh,
     ));
     let handle = asset_server.load("skybox.png");
     commands.insert_resource(LoadingSkybox { handle })
