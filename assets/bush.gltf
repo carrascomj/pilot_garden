@@ -11354,9 +11354,9 @@
 			"name":"Material.002",
 			"pbrMetallicRoughness":{
 				"baseColorFactor":[
-					0.18754559755325317,
-					0.47818073630332947,
-					0.19886890053749084,
+					0.9130931496620178,
+					0.8962703943252563,
+					0.496933251619339,
 					1
 				],
 				"metallicFactor":0,
@@ -11385,14 +11385,11 @@
 		{
 			"doubleSided":true,
 			"name":"Material.004",
-			"normalTexture":{
-				"index":1
-			},
 			"pbrMetallicRoughness":{
 				"baseColorFactor":[
-					0.15895989537239075,
-					0.11193250119686127,
-					0.10702315717935562,
+					0.08649992197751999,
+					0.0742136612534523,
+					0.05286069214344025,
 					1
 				],
 				"metallicFactor":0,
@@ -11404,9 +11401,9 @@
 			"name":"capsule_material",
 			"pbrMetallicRoughness":{
 				"baseColorFactor":[
-					0.04352317005395889,
-					0.05214982479810715,
-					0.037825994193553925,
+					0.002428090665489435,
+					0.052860695868730545,
+					0.10702314227819443,
 					1
 				],
 				"metallicFactor":0.7727272510528564,
@@ -12559,10 +12556,6 @@
 		{
 			"sampler":0,
 			"source":0
-		},
-		{
-			"sampler":1,
-			"source":1
 		}
 	],
 	"images":[
@@ -12570,11 +12563,6 @@
 			"mimeType":"image/png",
 			"name":"bush_texture",
 			"uri":"bush_texture.png"
-		},
-		{
-			"mimeType":"image/png",
-			"name":"wood_texture",
-			"uri":"wood_texture.png"
 		}
 	],
 	"skins":[
@@ -19636,12 +19624,6 @@
 		{
 			"magFilter":9728,
 			"minFilter":9984
-		},
-		{
-			"magFilter":9729,
-			"minFilter":9987,
-			"wrapS":33071,
-			"wrapT":33071
 		}
 	],
 	"buffers":[
