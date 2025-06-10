@@ -1,7 +1,12 @@
 use crate::config::{
     CAMERA_SENSITIVITY, GRAVITY, GameState, PLAYER_HALF_EXTENTS, SPEED, START_POS,
 };
-use bevy::{input::mouse::AccumulatedMouseMotion, prelude::*};
+use bevy::{
+    core_pipeline::Skybox,
+    input::mouse::AccumulatedMouseMotion,
+    prelude::*,
+    render::render_resource::{TextureViewDescriptor, TextureViewDimension},
+};
 use std::f32::consts::{FRAC_PI_2, PI};
 
 #[derive(Component)]
@@ -13,6 +18,7 @@ impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, spawn_player)
             .add_systems(OnExit(GameState::Menu), reset_player)
+            .add_systems(Update, load_skybox.run_if(in_state(GameState::Above)))
             .add_systems(
                 Update,
                 (move_player, advance_physics, interpolate_rendered_transform)
@@ -45,7 +51,7 @@ struct PhysicalTranslation(Vec3);
 struct PreviousPhysicalTranslation(Vec3);
 
 /// Create the player with the camera (FPS-like)
-fn spawn_player(mut commands: Commands) {
+fn spawn_player(mut commands: Commands, asset_server: ResMut<AssetServer>) {
     commands.spawn((
         Camera3d::default(),
         Projection::Perspective(PerspectiveProjection {
@@ -64,6 +70,41 @@ fn spawn_player(mut commands: Commands) {
         PreviousPhysicalTranslation(START_POS),
         Player {},
     ));
+    let handle = asset_server.load("skybox.png");
+    commands.insert_resource(LoadingSkybox { handle })
+}
+
+#[derive(Resource)]
+struct LoadingSkybox {
+    handle: Handle<Image>,
+}
+
+fn load_skybox(
+    mut commands: Commands,
+    mut loading_sky: ResMut<LoadingSkybox>,
+    asset_server: ResMut<AssetServer>,
+    mut images: ResMut<Assets<Image>>,
+    player: Single<Entity, With<Player>>,
+    mut loaded: Local<bool>,
+) {
+    // load 6 vertically stacked squares from PNG and turn them into a cube
+    if *loaded || !asset_server.is_loaded(loading_sky.handle.id()) {
+        return;
+    }
+    println!("loading skybox");
+    *loaded = true;
+    let image = images.get_mut(&mut loading_sky.handle).unwrap();
+    let array_layers = 6;
+    image.reinterpret_stacked_2d_as_array(array_layers);
+    image.texture_view_descriptor = Some(TextureViewDescriptor {
+        dimension: Some(TextureViewDimension::Cube),
+        ..default()
+    });
+    commands.entity(player.entity()).insert(Skybox {
+        image: loading_sky.handle.clone(),
+        brightness: 1000.,
+        ..default()
+    });
 }
 
 fn reset_player(

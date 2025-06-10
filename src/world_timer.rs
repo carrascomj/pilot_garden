@@ -5,13 +5,7 @@ use std::{
     time::Duration,
 };
 
-use bevy::{
-    prelude::*,
-    render::{
-        mesh::{SphereKind, SphereMeshBuilder},
-        view::NoFrustumCulling,
-    },
-};
+use bevy::{core_pipeline::Skybox, prelude::*, render::view::NoFrustumCulling};
 
 use crate::{
     Capsule, ToolBench,
@@ -100,18 +94,9 @@ fn spawn_sun(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let day_secs = 50.;
+    let day_secs = 30.;
     let init_pos = Vec3::new(10.0, 4.0, 30.);
     let sun_radius = 100.;
-    // to see the sun in the sky
-    let sphere = SphereMeshBuilder::new(2., SphereKind::Ico { subdivisions: 3 }).build();
-    let sun_mesh = Mesh3d(meshes.add(sphere));
-    let sun_material = MeshMaterial3d(materials.add(StandardMaterial {
-        base_color: Color::srgb_from_array([1.0, 1.0, 1.0]),
-        unlit: true,
-        diffuse_transmission: 1.0,
-        ..default()
-    }));
     let light = DirectionalLight {
         color: Color::Srgba(Srgba {
             red: 0.95,
@@ -138,7 +123,7 @@ fn spawn_sun(
                 rad: sun_radius,
             },
         ))
-        .with_child((sun_mesh, sun_material, light, NoFrustumCulling));
+        .with_child((light, NoFrustumCulling));
     // only for the night
     commands.spawn((
         StateScoped(GameState::Above),
@@ -233,6 +218,7 @@ struct ReportAngle;
 fn orbit_sun(
     mut sun_query: Query<(&mut Transform, &Sun, &TimerComp, &Children)>,
     mut lights: Query<&mut DirectionalLight>,
+    mut skybox: Query<&mut Skybox>,
     // mut rep: Single<&mut Text, With<ReportAngle>>,
 ) {
     let Ok((mut trans, sun, timer, children)) = sun_query.single_mut() else {
@@ -250,7 +236,6 @@ fn orbit_sun(
     let t = timer.0.fraction();
     // normalize so that the day takes ~ 3/4 of the day.
     let u = 3.0 * t * t - 2.0 * t * t * t;
-    // rep.0 = format!("{u:.2}");
     let theta = sun.start_angle + u * (sun.end_angle - sun.start_angle);
 
     // YZ-plane parametric circle
@@ -272,6 +257,8 @@ fn orbit_sun(
 
     // [PI, 0] and [0, -PI] -> [0, 1] and [1, 0]
     let polar_u = ((PI - if theta < 0. { -theta } else { theta }) / PI).clamp(0., 1.);
+    let theta_phi = (1. + (theta % (2. * PI)).cos()) / 2.;
+    // rep.0 = format!("T [{theta:.2}] P [{theta_phi:.2}]");
 
     // Day -> hold the bright-red colour (or lerp to something else if you like)
     let rgb = DAWN_COLOUR.lerp(MIDDAY_COLOUR, polar_u);
@@ -288,6 +275,12 @@ fn orbit_sun(
             0.25 - 0.20 * (u - SUNSET_END) / (1.0 - SUNSET_END)
         }
         .max(0.05); // never pitch-black unless you want it
+
+    // rotate skybox
+    if let Ok(mut sky) = skybox.single_mut() {
+        sky.rotation = Quat::from_rotation_x(theta);
+        sky.brightness = 1500. * theta_phi + 20.;
+    }
 }
 
 // NIGHT LOGIC
