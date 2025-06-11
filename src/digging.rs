@@ -3,6 +3,7 @@
 use std::f32::consts::PI;
 
 use crate::config::{GameState, REST_ROT};
+use crate::gnomes::GnomeMachine;
 use crate::player_movement::Collider;
 use crate::world_timer::TimerComp;
 use bevy::prelude::*;
@@ -251,14 +252,22 @@ impl RemoveTimer {
 /// the entity afterwards at [`remove_animation`].
 fn remove_when_life_depleted(
     mut commands: Commands,
-    mut lifes: Query<(Entity, &mut Transform, &mut Life), Changed<Life>>,
+    mut lifes: Query<(Entity, &mut Transform, &mut Life, Option<&mut GnomeMachine>), Changed<Life>>,
 ) {
-    for (entity, mut trans, mut life) in lifes.iter_mut() {
+    for (entity, mut trans, mut life, maybe_gnome) in lifes.iter_mut() {
         if let Life::Left(count) = life.as_ref() {
+            let is_gnome = maybe_gnome.is_none();
             if count <= &0 {
-                commands.entity(entity).insert(RemoveTimer::new());
+                if let Some(mut gnome) = maybe_gnome {
+                    // if it was already dying, it already died
+                    if *gnome != GnomeMachine::Dying {
+                        *gnome = GnomeMachine::Dying;
+                    }
+                } else {
+                    commands.entity(entity).insert(RemoveTimer::new());
+                }
             }
-            if count < &3 {
+            if count < &3 && is_gnome {
                 trans.scale *= 0.9;
             }
         } else {

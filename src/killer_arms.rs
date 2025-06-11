@@ -48,6 +48,7 @@ pub struct KillerHead;
 struct KillerArm;
 
 fn spawn_killing_arm(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let killer_arm = asset_server.load(GltfAssetLabel::Scene(0).from_asset("killing_arm.glb"));
     for killer_position in [
         Vec3::new(8., 0., -15.),
         Vec3::new(8., 0., 15.),
@@ -59,7 +60,7 @@ fn spawn_killing_arm(mut commands: Commands, asset_server: Res<AssetServer>) {
         timer.0.pause();
         let init_pos = killer_position - (Vec3::Y * 100.);
         commands.spawn((
-            SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("killing_arm.glb"))),
+            SceneRoot(killer_arm.clone()),
             StateScoped(GameState::Above),
             KillerArm,
             Transform::from_translation(init_pos),

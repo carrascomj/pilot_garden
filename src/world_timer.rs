@@ -161,6 +161,8 @@ fn spawn_sun(
         ..default()
     }));
 
+    let streetlight =
+        asset_server.load(GltfAssetLabel::Scene(0).from_asset("streetlight.gltf#Streetlight"));
     for init_pos in [
         Vec3::new(-7.0, -11., -8.0),
         Vec3::new(29.5, -11., 8.7),
@@ -180,10 +182,7 @@ fn spawn_sun(
             // since the light would disappear if not looking at it
             timer,
             Transform::from_translation(init_pos),
-            SceneRoot(
-                asset_server
-                    .load(GltfAssetLabel::Scene(0).from_asset("streetlight.gltf#Streetlight")),
-            ),
+            SceneRoot(streetlight.clone()),
             children![(
                 Visibility::Hidden,
                 NoFrustumCulling,

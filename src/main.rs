@@ -11,6 +11,7 @@ use std::{f32::consts::TAU, time::Duration};
 mod config;
 mod digging;
 mod dodgy;
+mod gnomes;
 mod killer_arms;
 mod menu;
 mod player_movement;
@@ -19,6 +20,7 @@ mod world_timer;
 
 use digging::{DiggingPlugin, Life, Minable, OneSizeCollider};
 use dodgy::{Dodgy, DodgyPlugin};
+use gnomes::GnomePlugin;
 use killer_arms::{KillerArmPlugin, KillerHead, KillerPoint, KillerTimer};
 use player_movement::{Collider, Player, PlayerPlugin};
 use point_raycast::FirstPersonPickerPlugin;
@@ -45,10 +47,6 @@ fn main() {
             ..default()
         }),))
         .init_state::<GameState>()
-        .insert_resource(AmbientLight {
-            brightness: 40.0,
-            ..default()
-        })
         .add_systems(Startup, (setup, setup_colliders))
         .add_systems(OnEnter(GameState::Menu), (spawn_tool_bench, spawn_crops))
         .add_systems(
@@ -67,6 +65,7 @@ fn main() {
             DodgyPlugin,
             FirstPersonPickerPlugin,
             GameMenu,
+            GnomePlugin,
             KillerArmPlugin,
             PlayerPlugin,
         ))
