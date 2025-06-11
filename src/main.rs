@@ -91,7 +91,7 @@ fn setup_colliders(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
         // floor (subdivided to accomodate dirt colliders)
         (26.0, 22.0, 5.0, 0.0, 1.0, -1.0),
         (12.0, 12.0, 24.0, 7.0, 1.0, -1.0),
-        // fake bush zone
+        // fake bush safe zone
         (20.0, 20.0, 24.0, 20.0, 1.0, -4.0),
     ] {
         let cub = Cuboid::new(half_x, GROUND_Y * mult_y, half_z);
@@ -133,7 +133,29 @@ fn setup(
         Transform::from_translation(POS).with_rotation(Quat::from_rotation_y(3.14)),
         Capsule { active: false },
     ));
+
+    // light in safe zone
+    commands.spawn((
+        PointLight {
+            color: Color::Srgba(Srgba {
+                red: 1.0,
+                green: 0.3,
+                blue: 0.9,
+                alpha: 1.0,
+            }),
+            range: 10.,
+            radius: 10.,
+            intensity: 200_000.,
+            shadows_enabled: true,
+            ..default()
+        },
+        Visibility::Visible,
+        Transform::from_xyz(21., 2.13, 23.4).looking_at(Vec3::NEG_Y, Vec3::NEG_Y),
+    ));
 }
+
+#[derive(Component)]
+pub struct SomeLights;
 
 /// Marker for the tools.
 #[derive(Component)]

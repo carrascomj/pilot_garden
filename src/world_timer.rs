@@ -95,6 +95,9 @@ impl ShowOnAlarmTime {
     }
 }
 
+#[derive(Component)]
+struct OnlyOnNight;
+
 fn spawn_sun(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -184,6 +187,7 @@ fn spawn_sun(
             children![(
                 Visibility::Hidden,
                 NoFrustumCulling,
+                OnlyOnNight,
                 SpotLight {
                     color: Color::srgb(0.98, 0.93, 0.5),
                     intensity: 200_000.0,
@@ -402,7 +406,7 @@ fn restart_day(
         ),
         (Without<NightTimer>, Without<Sun>, Without<KillerHead>),
     >,
-    mut lamps: Query<&mut Visibility, With<SpotLight>>,
+    mut lamps: Query<&mut Visibility, (With<SpotLight>, With<OnlyOnNight>)>,
     mut capsule: Single<(Entity, &Transform, &mut Capsule)>,
     mut killers: Query<&mut TimerComp, (With<KillerHead>, Without<NightTimer>, Without<Sun>)>,
 ) {
