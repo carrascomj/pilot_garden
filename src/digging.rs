@@ -259,10 +259,7 @@ fn remove_when_life_depleted(
             let is_gnome = maybe_gnome.is_none();
             if count <= &0 {
                 if let Some(mut gnome) = maybe_gnome {
-                    // if it was already dying, it already died
-                    if *gnome != GnomeMachine::Dying {
-                        *gnome = GnomeMachine::Dying;
-                    }
+                    gnome.next_state();
                 } else {
                     commands.entity(entity).insert(RemoveTimer::new());
                 }
