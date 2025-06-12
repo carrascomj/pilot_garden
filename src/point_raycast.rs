@@ -93,8 +93,17 @@ fn get_recursive_minable<'a>(
     }
 }
 
+struct CooldownTimer(Timer);
+
+impl Default for CooldownTimer {
+    fn default() -> Self {
+        Self(Timer::from_seconds(0.8, TimerMode::Once))
+    }
+}
+
 /// Pick click interactions and act accordingly.
 fn cast_player_ray(
+    time: Res<Time>,
     mut commands: Commands,
     mut seeds_event: EventWriter<SeedsPlaced>,
     mut inventory: ResMut<Inventory>,
@@ -113,7 +122,12 @@ fn cast_player_ray(
     )>,
     children: Query<&ChildOf>,
     player_query: Query<Entity, With<Player>>,
+    mut interaction_cooldown: Local<CooldownTimer>,
 ) {
+    if !interaction_cooldown.0.finished() {
+        interaction_cooldown.0.tick(time.delta());
+        return;
+    }
     // Cast an automatically moving ray and bounce it off of surfaces
     let ray_pos = player_q.translation();
     let ray_dir = player_q.forward();
@@ -178,6 +192,7 @@ fn cast_player_ray(
                     if on_hand.active {
                         timer.0.unpause();
                         timer.0.reset();
+                        interaction_cooldown.0.reset();
                     } else {
                         continue;
                     }
