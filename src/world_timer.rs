@@ -103,6 +103,7 @@ fn spawn_sun(
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut streetlight_handle: Local<Option<Handle<Scene>>>,
 ) {
     let day_secs = 40.;
     let init_pos = Vec3::new(10.0, 4.0, 30.);
@@ -160,9 +161,15 @@ fn spawn_sun(
         diffuse_transmission: 1.0,
         ..default()
     }));
-
-    let streetlight =
-        asset_server.load(GltfAssetLabel::Scene(0).from_asset("streetlight.gltf#Streetlight"));
+    // hold a handle to the streelight scene between calls
+    if streetlight_handle.is_none() {
+        *streetlight_handle = Some(
+            asset_server.load(GltfAssetLabel::Scene(0).from_asset("streetlight.gltf#Streetlight")),
+        );
+    }
+    let streetlight = (*streetlight_handle)
+        .as_ref()
+        .expect("This is always loaded before");
     for init_pos in [
         Vec3::new(-7.0, -11., -8.0),
         Vec3::new(29.5, -11., 8.7),

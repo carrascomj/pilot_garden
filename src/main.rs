@@ -164,10 +164,18 @@ fn spawn_tool_bench(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     existing_tooltip: Query<Entity, With<ToolBench>>,
+    mut tooltip_handle: Local<Option<Handle<Scene>>>,
 ) {
+    // hold a handle to the streelight scene between calls
     for tooltip in &existing_tooltip {
         commands.entity(tooltip).despawn();
     }
+    if tooltip_handle.is_none() {
+        *tooltip_handle = Some(asset_server.load(GltfAssetLabel::Scene(0).from_asset("tools.glb")));
+    }
+    let tooltip = (*tooltip_handle)
+        .as_ref()
+        .expect("This is always loaded before");
 
     // spawn the tools
     let mut timer = TimerComp::from_elapsed(2.5);
@@ -176,7 +184,7 @@ fn spawn_tool_bench(
     // the tooltip inside the scene is put to match bush.gltf
     let init_pos = Vec3::new(0., 0., 0.);
     commands.spawn((
-        SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("tools.glb"))),
+        SceneRoot(tooltip.clone()),
         timer,
         ToolBench,
         ShowOnAlarmTime::as_false(),
@@ -197,14 +205,20 @@ fn spawn_crops(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     existing_crop: Query<Entity, With<Crop>>,
+    mut crop_handle: Local<Option<Handle<Scene>>>,
 ) {
-    for tooltip in &existing_crop {
-        commands.entity(tooltip).despawn();
+    // hold a handle to the streelight scene between calls
+    for crop in &existing_crop {
+        commands.entity(crop).despawn();
     }
-    commands.spawn((
-        SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("crops.glb"))),
-        Crop,
-    ));
+    if crop_handle.is_none() {
+        *crop_handle = Some(asset_server.load(GltfAssetLabel::Scene(0).from_asset("crops.glb")));
+    }
+    let crop_scene = (*crop_handle)
+        .as_ref()
+        .expect("This is always loaded before");
+
+    commands.spawn((SceneRoot(crop_scene.clone()), Crop));
 }
 /// The player may bump with objects. If they have a "main" bone, this will cause a
 /// small procedural animation that twists the object back and forth.

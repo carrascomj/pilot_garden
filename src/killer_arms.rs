@@ -47,8 +47,19 @@ pub struct KillerHead;
 #[derive(Component)]
 struct KillerArm;
 
-fn spawn_killing_arm(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let killer_arm = asset_server.load(GltfAssetLabel::Scene(0).from_asset("killing_arm.glb"));
+fn spawn_killing_arm(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut killerarm_handle: Local<Option<Handle<Scene>>>,
+) {
+    // hold a handle to the streelight scene between calls
+    if killerarm_handle.is_none() {
+        *killerarm_handle =
+            Some(asset_server.load(GltfAssetLabel::Scene(0).from_asset("killing_arm.glb")));
+    }
+    let killer_arm = (*killerarm_handle)
+        .as_ref()
+        .expect("This is always loaded before");
     for killer_position in [
         Vec3::new(8., 0., -15.),
         Vec3::new(8., 0., 15.),
