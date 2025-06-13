@@ -67,7 +67,7 @@ impl Collectible {
         );
         match self {
             Collectible::MiningPick => {
-                const PICK_OFFSET: Vec3 = Vec3::new(1.8, 1.5, -2.4);
+                const PICK_OFFSET: Vec3 = Vec3::new(1.4, -0.2, -1.8);
                 (PICK_OFFSET, REST_ROT)
             }
             Collectible::Seeds => {
@@ -201,19 +201,24 @@ fn animate_interaction(mut bones: Query<(&mut Transform, &OnHand, &TimerComp, &C
                         -0.35 * a, // dip down
                         -0.45 * a, // and forward
                     );
-                let r = rest_rot * Quat::from_euler(EulerRot::XYZ, -1.0 * a, 0.0, 0.0);
+                let r = rest_rot * Quat::from_euler(EulerRot::XYZ, -1.0 * a, 0.5, 0.0);
                 (t, r)
             }
             Collectible::MiningPick => {
-                // triangular pulse (faster change at the ends)
-                let a = if u < 0.5 { u * 2.0 } else { (1.0 - u) * 2.0 };
-                let t = (1.0 - a) * rest_pos
-                    + Vec3::new(
-                        0.0,
-                        0.35 * a, // up over head
-                        2.0 * a,  // slight Z pull
-                    );
-                let r = rest_rot * Quat::from_euler(EulerRot::XYZ, 1.2 * a, 0.0, 0.0);
+                let curve = CubicCardinalSpline {
+                    tension: 0.4,
+                    control_points: [
+                        rest_pos,
+                        rest_pos + Vec3::new(0.35, 0.35, 0.84),
+                        rest_pos + Vec3::new(-0.5, -0.35, -1.),
+                        rest_pos,
+                    ]
+                    .into(),
+                }
+                .to_curve()
+                .expect("Should work");
+                let t = curve.position(u * 2.);
+                let r = rest_rot * Quat::from_euler(EulerRot::XYZ, -0.4 * wave(u), 0.5, 0.0);
                 (t, r)
             }
             Collectible::Food | Collectible::Seeds => {

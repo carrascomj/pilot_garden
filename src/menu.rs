@@ -10,8 +10,8 @@ pub struct GameMenu;
 
 // colors for button interactions
 const BUTTON_COLOR: Color = Color::srgb(1.0, 0.3, 0.9); // cyber pink
-const PRESSED_COLOR: Color = Color::srgb(0.3, 1.0, 0.9); // cyber blue
-const HOVER_COLOR: Color = Color::srgb(1.0, 1.0, 1.0); // white blue
+const HOVER_COLOR: Color = Color::srgb(0.3, 1.0, 0.9); // cyber blue
+const PRESSED_COLOR: Color = Color::srgb(1.0, 1.0, 1.0); // white blue
 
 impl Plugin for GameMenu {
     fn build(&self, app: &mut App) {
