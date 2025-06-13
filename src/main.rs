@@ -23,7 +23,7 @@ use dodgy::{Dodgy, DodgyPlugin};
 use gnomes::GnomePlugin;
 use killer_arms::{KillerArmPlugin, KillerHead, KillerPoint, KillerTimer};
 use player_movement::{Collider, Player, PlayerPlugin};
-use point_raycast::FirstPersonPickerPlugin;
+use point_raycast::{FirstPersonPickerPlugin, RayBlocker};
 use world_timer::{DayNightPlugin, ShowOnAlarmTime, TimerComp};
 
 use config::{BUMP_DISTANCE, GROUND_Y, GameState};
@@ -88,8 +88,11 @@ fn setup_colliders(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
         (0.5, 10.0, 18.2, -4.0, 2.0, 1.0),
         (7.5, 0.5, 26.0, 1.35, 2.0, 1.0),
         // floor (subdivided to accomodate dirt colliders)
-        (26.0, 22.0, 5.0, 0.0, 1.0, -1.0),
-        (12.0, 12.0, 24.0, 7.0, 1.0, -1.0),
+        (26.0, 22.0, 5.0, 0.0, 1.0, -1.2),  // y = 1.2
+        (12.0, 5.85, 24.0, 3.9, 4.0, -5.4), // y = -5.4
+        (8.0, 4.1, 22.0, 8.9, 4.0, -5.4),   // y = -5.4
+        (2., 3.5, 29., 8.6, 4.0, -5.4),     // y = -5.4
+        (2., 2., 27., 9.8, 4.0, -5.4),      // y = -5.4
         // fake bush safe zone
         (20.0, 20.0, 24.0, 20.0, 1.0, -4.0),
     ] {
@@ -233,6 +236,8 @@ struct MainBone {
 fn find_main_bone(
     mut commands: Commands,
     new_names: Populated<(Entity, &Name, &Transform), Added<Name>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut first_platform_mover: Local<bool>,
 ) {
     for (entity, name, transform) in new_names.iter() {
         if name.as_str().starts_with("main") {
@@ -272,6 +277,14 @@ fn find_main_bone(
                 killer_timer,
                 StateScoped(GameState::Above),
             ));
+        } else if name.as_str() == "platform_mover" && !*first_platform_mover {
+            // only the first ever spawned needs the platform mover
+            commands.entity(entity).with_child((
+                Mesh3d(meshes.add(Cuboid::new(2.2, 4., 2.))),
+                Transform::from_translation(Vec3::new(0., -2., 0.8)),
+                RayBlocker,
+            ));
+            *first_platform_mover = true;
         }
     }
 }

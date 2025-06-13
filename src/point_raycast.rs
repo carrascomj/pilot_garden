@@ -30,6 +30,9 @@ impl Plugin for FirstPersonPickerPlugin {
     }
 }
 
+#[derive(Component)]
+pub struct RayBlocker;
+
 /// Check if the `child` has a parent with the correct Component.
 ///
 /// For minables, the hierarcy becomes a bit complex, so it's walked
@@ -47,7 +50,11 @@ fn filter_recursive(
         &mut OnHand,
         &mut TimerComp,
     )>,
+    blockers: Query<&RayBlocker>,
 ) -> bool {
+    if blockers.contains(child) {
+        return true;
+    }
     if let Ok(e) = children.get(child) {
         let contains = match inv {
             Inventory::Shovel(_) | Inventory::Seeds(_) => diggables.contains(e.0),
@@ -120,6 +127,7 @@ fn cast_player_ray(
         &mut OnHand,
         &mut TimerComp,
     )>,
+    blockers: Query<&RayBlocker>,
     children: Query<&ChildOf>,
     player_query: Query<Entity, With<Player>>,
     mut interaction_cooldown: Local<CooldownTimer>,
@@ -140,6 +148,7 @@ fn cast_player_ray(
             &minables,
             children,
             &collectables,
+            blockers,
         )
     };
 
@@ -148,7 +157,7 @@ fn cast_player_ray(
             ray,
             &MeshRayCastSettings::default()
                 .with_filter(&this_filter)
-                .with_early_exit_test(&this_filter),
+                .always_early_exit(),
         )
         .first()
     {
@@ -157,9 +166,15 @@ fn cast_player_ray(
                 return;
             };
             let trigger = &trigger_parent.0;
-            *cross_q.0 = BorderColor(Color::BLACK);
-            *cross_q.1 = BackgroundColor(Color::BLACK);
-            cross_q.2.color = Color::BLACK;
+            if blockers.contains(*child) || blockers.contains(*trigger) {
+                *cross_q.0 = BorderColor(Color::srgba(0., 0., 0., 0.2));
+                *cross_q.1 = BackgroundColor(Color::srgba(0., 0., 0., 0.2));
+                cross_q.2.color = Color::srgba(0., 0., 0., 0.2);
+                return;
+            }
+            *cross_q.0 = BorderColor(Color::srgba(1.0, 0.3, 0.9, 0.7));
+            *cross_q.1 = BackgroundColor(Color::srgba(1.0, 0.3, 0.9, 0.7));
+            cross_q.2.color = Color::srgba(1.0, 0.3, 0.9, 0.7);
             if mouse_button_input.just_pressed(MouseButton::Left) {
                 if let Ok((ent, mut transform, collectible, mut on_hand, _)) =
                     collectables.get_mut(*trigger)

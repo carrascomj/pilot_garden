@@ -105,7 +105,7 @@ fn spawn_sun(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut streetlight_handle: Local<Option<Handle<Scene>>>,
 ) {
-    let day_secs = 40.;
+    let day_secs = 180.;
     let init_pos = Vec3::new(10.0, 4.0, 30.);
     let sun_radius = 100.;
     let light = DirectionalLight {
@@ -118,7 +118,7 @@ fn spawn_sun(
         shadows_enabled: true,
         ..default()
     };
-    let start_angle = FRAC_PI_2;
+    let start_angle = FRAC_PI_2 + 0.2;
 
     commands
         .spawn((

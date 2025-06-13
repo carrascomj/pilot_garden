@@ -91,6 +91,8 @@ struct Animations {
 /// enitity as a child.
 #[derive(Component)]
 struct HasAnimationChild(Option<Entity>);
+#[derive(Component)]
+pub struct PlatformMover;
 
 /// The gnomes above are tame and can only die.
 fn spawn_gnomes_above(
@@ -112,9 +114,9 @@ fn spawn_gnomes_above(
         animations: node_indices,
         graph_handle,
     });
-
-    for (x, y, z) in [(20., 0.1, 9.6), (24., -2.2, 25.6)] {
-        commands.spawn((
+    let mut first = true;
+    for (x, y, z) in [(27., 0.1, 8.6), (24., -2.2, 25.6)] {
+        let mut ent_comm = commands.spawn((
             SceneRoot(gnome.clone()),
             HasAnimationChild(None),
             GnomeMachine::new(),
@@ -123,6 +125,10 @@ fn spawn_gnomes_above(
             Minable,
             Life::JustSpawned,
         ));
+        if first {
+            ent_comm.insert(PlatformMover);
+            first = false;
+        }
     }
 }
 
