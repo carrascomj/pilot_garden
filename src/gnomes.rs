@@ -11,6 +11,8 @@ use crate::{
 };
 
 const GNOME_SIZE: Vec3 = Vec3::new(0.5, 1.5, 0.5);
+const GNOME_VIEW_DISTANCE_POW2: f32 = 100.;
+const COS_THRESHOLD: f32 = 0.70710677; // cos(PI / 4)
 // TODO: set this actually right
 const GNOME_VELOCITY: f32 = 20.;
 const ALERTER_POSITIONS: [Vec2; 3] = [
@@ -38,6 +40,7 @@ pub enum GnomeState {
     Inactive,
     Active,
     LoadingBanana,
+    DroppingBanana,
     Moving {
         timer: Timer,
         /// Vec2 since the gnomes do not fly
@@ -65,7 +68,8 @@ impl GnomeMachine {
         self.state = match self.state {
             GnomeState::Dying | GnomeState::Attacking => return,
             GnomeState::Inactive => GnomeState::Dying,
-            GnomeState::LoadingBanana => GnomeState::Moving {
+            GnomeState::LoadingBanana => GnomeState::DroppingBanana,
+            GnomeState::DroppingBanana => GnomeState::Moving {
                 timer: Timer::from_seconds(7., TimerMode::Once),
                 spline: CubicCardinalSpline {
                     tension: 0.1,
@@ -230,6 +234,36 @@ fn move_gnome(
                             transform.translation + (dir * delta * GNOME_VELOCITY);
                         transform.look_to(dir, Vec3::Y);
                     };
+                }
+            }
+            GnomeState::Active | GnomeState::LoadingBanana => {
+                // check visibility of player given some distance threshold
+                // and minimum angle with respect the forward direction of gnome
+                let Ok(target) = player_transform.single() else {
+                    continue;
+                };
+                let mut to_player = target.translation - transform.translation;
+                to_player.y = 0.0;
+
+                if to_player.length_squared() > GNOME_VIEW_DISTANCE_POW2 {
+                    continue; // player too far
+                }
+
+                let mut forward: Vec3 = transform.forward().into();
+                forward.y = 0.0;
+
+                if forward.length_squared() < 1e-6 {
+                    continue; // no horizontal forward
+                }
+
+                // a . b = |a| |b| cos(ɑ)
+                let dir_norm = to_player.normalize();
+                let fwd_norm = forward.normalize();
+
+                // a . b = cos(ɑ)
+                let dot = fwd_norm.dot(dir_norm);
+                if dot >= COS_THRESHOLD {
+                    gnome.next_state();
                 }
             }
             _ => (),
