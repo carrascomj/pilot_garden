@@ -47,8 +47,16 @@ fn main() {
             ..default()
         }),))
         .init_state::<GameState>()
-        .add_systems(Startup, (setup, setup_colliders))
-        .add_systems(OnEnter(GameState::Menu), (spawn_tool_bench, spawn_crops))
+        .add_systems(Startup, (setup_shared_colliders, setup_main_scene))
+        .add_systems(OnExit(GameState::Menu), setup_colliders_above)
+        .add_systems(
+            OnEnter(GameState::Below),
+            (setup_colliders_below, setup_below),
+        )
+        .add_systems(
+            OnEnter(GameState::Menu),
+            (spawn_tool_bench, spawn_crops, setup_capsule),
+        )
         .add_systems(
             Update,
             (
@@ -58,6 +66,7 @@ fn main() {
             )
                 .run_if(not(in_state(GameState::Menu))),
         )
+        .add_systems(Update, transit_to_below.run_if(in_state(GameState::Above)))
         // custom game mechanics
         .add_plugins((
             DayNightPlugin,
@@ -75,7 +84,7 @@ fn main() {
 
 /// Setup colliders. Since the setup is very simple, we set colliders manually;
 /// they only interact with the player; and they are independent from the 3D models.
-fn setup_colliders(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
+fn setup_colliders_above(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     for (half_x, half_z, x, z, mult_y, y) in [
         // special right wall to surround the fake bush
         (28.0, 2.0, 3.0, 10.0, 8.0, 1.0),
@@ -87,26 +96,92 @@ fn setup_colliders(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
         // fences
         (0.5, 10.0, 18.2, -4.0, 2.0, 1.0),
         (7.5, 0.5, 26.0, 1.35, 2.0, 1.0),
-        // floor (subdivided to accomodate dirt colliders)
-        (26.0, 22.0, 5.0, 0.0, 1.0, -1.2),  // y = 1.2
-        (12.0, 5.85, 24.0, 3.9, 4.0, -5.4), // y = -5.4
-        (8.0, 4.1, 22.0, 8.9, 4.0, -5.4),   // y = -5.4
-        (2., 3.5, 29., 8.6, 4.0, -5.4),     // y = -5.4
-        (2., 2., 27., 9.8, 4.0, -5.4),      // y = -5.4
+        // floor (subdivided to accomodate dirt colliders, rest in shared colliders)
+        (26.0, 22.0, 5.0, 0.0, 1.0, -1.2),
         // fake bush safe zone
         (20.0, 20.0, 24.0, 20.0, 1.0, -4.0),
     ] {
         let cub = Cuboid::new(half_x, GROUND_Y * mult_y, half_z);
         let cub_transform = Transform::from_xyz(x, y, z);
         let cub_collider = Collider::from((&cub, &cub_transform));
-        commands.spawn((cub_transform, cub_collider));
+        commands.spawn((cub_transform, cub_collider, StateScoped(GameState::Above)));
     }
     let (half_x, half_z, x, z, mult_y, y) = (38.0, 2.0, 11.0, 10.0, 30., -20.0);
 
     // invisible mesh to protect the player from lasers
     let cub = Cuboid::new(half_x, GROUND_Y * mult_y, half_z);
     let cub_transform = Transform::from_xyz(x, y, z);
-    commands.spawn((Mesh3d(meshes.add(cub)), cub_transform));
+    commands.spawn((
+        Mesh3d(meshes.add(cub)),
+        cub_transform,
+        StateScoped(GameState::Above),
+    ));
+}
+
+fn setup_shared_colliders(mut commands: Commands) {
+    for (half_x, half_z, x, z, mult_y, y) in [
+        // floor escape (subdivided to accomodate dirt colliders)
+        (12.0, 5.85, 24.0, 3.9, 4.0, -5.4),
+        (8.0, 4.1, 22.0, 8.9, 4.0, -5.4),
+        (2., 3.5, 29., 8.6, 4.0, -5.4),
+        (2., 2., 27., 9.8, 4.0, -5.4),
+        // initial floor below
+        (14., 100., 28.0, 36., 1.0, -27.5),
+    ] {
+        let cub = Cuboid::new(half_x, GROUND_Y * mult_y, half_z);
+        let cub_transform = Transform::from_xyz(x, y, z);
+        let cub_collider = Collider::from((&cub, &cub_transform));
+        commands.spawn((cub_transform, cub_collider));
+    }
+}
+
+fn setup_colliders_below(mut commands: Commands) {
+    for (i, (half_x, half_z, x, z, mult_y, y)) in [
+        // walls below initial zone
+        (2., 10., 20.5, -7.6, 6.0, -27.5),
+        (2., 10., 31.5, -7.6, 6.0, -27.5),
+        (38.0, 2.0, 19., -12.5, 8.0, -27.5),
+        // first corridor
+        (2., 73., 21.5, 34., 6.0, -27.5),
+        (2., 90., 29., 44., 6.0, -27.5),
+        // second corridor
+        (44.0, 2.0, 7., 77.5, 8.0, -27.5), // left wall
+        (36.0, 2.0, 3., 70., 12.0, -27.5), // right wall
+        (40.0, 8., 2., 74.5, 1.0, -27.5),  // floor
+        // studio
+        (68.0, 52.0, -49., 85., 1.0, -27.5), // floor
+        (68.0, 2.0, -49., 62., 6., -27.5),   // left wall
+        (68.0, 2.0, -49., 110., 6., -27.5),  // right wall
+        (2.0, 52., -78.5, 85., 6., -27.5),   // front wall
+        (2.0, 34., -15.5, 95., 6., -27.5),   // bottom wall left
+        (2.0, 12.0, -15.5, 65., 6., -27.5),  // bottom right
+    ]
+    .iter()
+    .enumerate()
+    {
+        let cub = Cuboid::new(*half_x, GROUND_Y * mult_y, *half_z);
+        let cub_transform = Transform::from_xyz(*x, *y, *z);
+        let cub_collider = Collider::from((&cub, &cub_transform));
+
+        commands.spawn((
+            cub_transform,
+            cub_collider,
+            StateScoped(GameState::Below),
+            Name::new(format!("Collider {}", i)),
+        ));
+    }
+}
+
+/// If the player has managed to dig enough, switch to below.
+fn transit_to_below(
+    mut next_state: ResMut<NextState<GameState>>,
+    // mut ambient_light: ResMut<AmbientLight>,
+    player: Single<&Transform, With<Player>>,
+) {
+    if player.translation.y < -8. {
+        next_state.set(GameState::Below);
+        // ambient_light.brightness = 0.
+    }
 }
 
 /// Marker for the capsule so we can check if we clicked it
@@ -116,24 +191,21 @@ pub struct Capsule {
     pub active: bool,
 }
 
-fn setup(
+/// Spawn main initial scene with all bushes, crops, etc.
+fn setup_main_scene(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<CapsuleMaterial>>,
+    mut bush_handle: Local<Option<Handle<Scene>>>,
 ) {
-    // spawn main scene with all bushes, crops, etc.
-    commands.spawn(SceneRoot(
-        asset_server.load(GltfAssetLabel::Scene(0).from_asset("bush.gltf")),
-    ));
+    if bush_handle.is_none() {
+        *bush_handle = Some(asset_server.load(GltfAssetLabel::Scene(0).from_asset("bush.gltf")));
+    }
 
-    // spawn the capsule, which is generated with a material with a shader
-    const POS: Vec3 = Vec3::new(-6.0, 3.0, 8.0);
-    commands.spawn((
-        Mesh3d(meshes.add(Cylinder::new(1., 4.))),
-        MeshMaterial3d(materials.add(CapsuleMaterial {})),
-        Transform::from_translation(POS).with_rotation(Quat::from_rotation_y(3.14)),
-        Capsule { active: false },
+    commands.spawn(SceneRoot(
+        bush_handle
+            .as_ref()
+            .expect("This is always loaded before.")
+            .clone(),
     ));
 
     // light in safe zone
@@ -154,6 +226,94 @@ fn setup(
         Visibility::Visible,
         Transform::from_xyz(21., 2.13, 23.4).looking_at(Vec3::NEG_Y, Vec3::NEG_Y),
     ));
+}
+
+/// Spawn the capsule, which is generated with a material with a shader.
+fn setup_capsule(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<CapsuleMaterial>>,
+) {
+    const POS: Vec3 = Vec3::new(-6.0, 3.0, 8.0);
+    commands.spawn((
+        Mesh3d(meshes.add(Cylinder::new(1., 4.))),
+        MeshMaterial3d(materials.add(CapsuleMaterial {})),
+        Transform::from_translation(POS).with_rotation(Quat::from_rotation_y(3.14)),
+        Capsule { active: false },
+    ));
+}
+
+fn setup_below(mut commands: Commands) {
+    commands.spawn_batch([
+        (
+            PointLight {
+                color: Color::Srgba(Srgba {
+                    red: 1.0,
+                    green: 0.3,
+                    blue: 0.9,
+                    alpha: 1.0,
+                }),
+                range: 10.,
+                radius: 10.,
+                intensity: 200_000.,
+                shadows_enabled: true,
+                ..default()
+            },
+            Transform::from_xyz(26.0, -20.0, 76.4),
+            Name::new("Corridor1"),
+        ),
+        (
+            PointLight {
+                color: Color::Srgba(Srgba {
+                    red: 1.0,
+                    green: 0.3,
+                    blue: 0.9,
+                    alpha: 1.0,
+                }),
+                range: 10.,
+                radius: 10.,
+                intensity: 200_000.,
+                shadows_enabled: true,
+                ..default()
+            },
+            Transform::from_xyz(30.0, -21.4, -3.8),
+            Name::new("CorridorFar"),
+        ),
+        (
+            PointLight {
+                color: Color::Srgba(Srgba {
+                    red: 0.9,
+                    green: 0.9,
+                    blue: 0.7,
+                    alpha: 1.0,
+                }),
+                range: 10.,
+                radius: 3.,
+                intensity: 700.,
+                shadows_enabled: true,
+                ..default()
+            },
+            Transform::from_xyz(27.0, -15., 7.8),
+            Name::new("LightHint"),
+        ),
+        (
+            PointLight {
+                color: Color::Srgba(Srgba {
+                    red: 0.9,
+                    green: 0.9,
+                    blue: 0.7,
+                    alpha: 1.0,
+                }),
+                range: 10.,
+                radius: 3.,
+                intensity: 7000.,
+                shadows_enabled: true,
+                ..default()
+            },
+            Transform::from_xyz(23.56, -15., -7.75),
+            Name::new("LightHint2"),
+        ),
+    ]);
 }
 
 #[derive(Component)]
