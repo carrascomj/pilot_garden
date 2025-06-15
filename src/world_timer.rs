@@ -118,7 +118,7 @@ fn spawn_sun(
         shadows_enabled: true,
         ..default()
     };
-    let start_angle = FRAC_PI_2 + 0.2;
+    let start_angle = FRAC_PI_2 - 0.4;
 
     commands
         .spawn((

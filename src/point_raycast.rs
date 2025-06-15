@@ -6,6 +6,7 @@ use crate::{
     config::{GameState, INTERACTION_DISTANCE},
     digging::{Collectible, Diggable, Life, Minable, OnHand, RemoveTimer, SeedsPlaced},
     player_movement::{Collider, Player},
+    surveillance::ButtonActivated,
     world_timer::TimerComp,
 };
 use bevy::{
@@ -18,10 +19,15 @@ pub struct FirstPersonPickerPlugin;
 impl Plugin for FirstPersonPickerPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnExit(GameState::Menu), spawn_cross)
+            .add_systems(OnEnter(GameState::Menu), despawn_cross)
             .init_resource::<Inventory>()
             .add_systems(
                 Update,
-                (cast_player_ray, manage_inventory, eat_food).run_if(in_state(GameState::Above)),
+                cast_player_ray.run_if(not(in_state(GameState::Menu))),
+            )
+            .add_systems(
+                Update,
+                (manage_inventory, eat_food).run_if(in_state(GameState::Above)),
             );
         if cfg!(debug_assertions) {
             app.init_gizmo_group::<MyRoundGizmos>()
@@ -113,6 +119,7 @@ fn cast_player_ray(
     time: Res<Time>,
     mut commands: Commands,
     mut seeds_event: EventWriter<SeedsPlaced>,
+    mut button_event: EventWriter<ButtonActivated>,
     mut inventory: ResMut<Inventory>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     mut ray_cast: MeshRayCast,
@@ -182,6 +189,17 @@ fn cast_player_ray(
                     let Ok(player_ent) = player_query.single() else {
                         return;
                     };
+                    *inventory = match collectible {
+                        // FIXME: make shovel 3
+                        Collectible::Shovel => Inventory::Shovel(100),
+                        Collectible::MiningPick => Inventory::MiningPick,
+                        Collectible::Food => Inventory::Food(1),
+                        Collectible::Seeds => Inventory::Seeds(1),
+                        Collectible::Button => {
+                            button_event.write(ButtonActivated);
+                            return;
+                        }
+                    };
                     // despawn currently held tool if any
                     commands.entity(player_ent).despawn_related::<Children>();
                     let (rest_pos, rest_rot) = collectible.on_hand_poses();
@@ -192,12 +210,6 @@ fn cast_player_ray(
                     transform.rotation = rest_rot;
 
                     commands.entity(player_ent).insert_children(4, &[ent]);
-                    *inventory = match collectible {
-                        Collectible::Shovel => Inventory::Shovel(5),
-                        Collectible::MiningPick => Inventory::MiningPick,
-                        Collectible::Food => Inventory::Food(1),
-                        Collectible::Seeds => Inventory::Seeds(1),
-                    };
                     on_hand.active = true;
                     return;
                 }
@@ -287,7 +299,6 @@ struct Cross;
 
 fn spawn_cross(mut commands: Commands) {
     commands.spawn((
-        StateScoped(GameState::Above),
         Node {
             display: Display::Block,
             position_type: PositionType::Absolute,
@@ -307,6 +318,10 @@ fn spawn_cross(mut commands: Commands) {
         },
         BackgroundColor(Color::srgba(0., 0., 0., 0.2)),
     ));
+}
+
+fn despawn_cross(mut commands: Commands, cross: Single<Entity, With<Cross>>) {
+    commands.entity(cross.entity()).despawn();
 }
 
 /// Check changes for inventory and update accordingly (shovel broken, etc.).

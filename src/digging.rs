@@ -57,6 +57,9 @@ pub enum Collectible {
     MiningPick,
     Seeds,
     Food,
+    /// Not a collectible per se, but it can also be interacted with
+    /// based on the logic of the rest (always, regardles of tool at hand)
+    Button,
 }
 
 impl Collectible {
@@ -151,7 +154,7 @@ pub struct OnHand {
 }
 
 impl OnHand {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self { active: false }
     }
 }
@@ -256,6 +259,9 @@ fn animate_interaction(mut bones: Query<(&mut Transform, &OnHand, &TimerComp, &C
                     );
                 let r = rest_rot * Quat::from_euler(EulerRot::YXZ, 0.15 * a, -0.10 * a, 0.10 * a);
                 (t, r)
+            }
+            _ => {
+                continue;
             }
         };
 

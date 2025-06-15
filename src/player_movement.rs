@@ -2,7 +2,7 @@ use crate::config::{
     CAMERA_SENSITIVITY, GRAVITY, GameState, PLAYER_HALF_EXTENTS, SPEED, START_POS,
 };
 use bevy::{
-    core_pipeline::Skybox,
+    core_pipeline::{Skybox, tonemapping::Tonemapping},
     input::mouse::AccumulatedMouseMotion,
     prelude::*,
     render::render_resource::{TextureViewDescriptor, TextureViewDimension},
@@ -62,6 +62,7 @@ fn spawn_player(
     };
     let capsule_mesh = Mesh3d(meshes.add(cub));
     commands.spawn((
+        Tonemapping::BlenderFilmic,
         Camera3d::default(),
         Projection::Perspective(PerspectiveProjection {
             fov: PI / 3.0,

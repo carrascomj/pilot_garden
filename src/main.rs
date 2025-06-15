@@ -16,6 +16,7 @@ mod killer_arms;
 mod menu;
 mod player_movement;
 mod point_raycast;
+mod surveillance;
 mod world_timer;
 
 use digging::{DiggingPlugin, Life, Minable, OneSizeCollider};
@@ -24,6 +25,7 @@ use gnomes::GnomePlugin;
 use killer_arms::{KillerArmPlugin, KillerHead, KillerPoint, KillerTimer};
 use player_movement::{Collider, Player, PlayerPlugin};
 use point_raycast::{FirstPersonPickerPlugin, RayBlocker};
+use surveillance::SurveillancePlugin;
 use world_timer::{DayNightPlugin, ShowOnAlarmTime, TimerComp};
 
 use config::{BUMP_DISTANCE, GROUND_Y, GameState};
@@ -47,16 +49,16 @@ fn main() {
             ..default()
         }),))
         .init_state::<GameState>()
-        .add_systems(Startup, (setup_shared_colliders, setup_main_scene))
+        .add_systems(
+            Startup,
+            (setup_shared_colliders, setup_main_scene, setup_capsule),
+        )
         .add_systems(OnExit(GameState::Menu), setup_colliders_above)
         .add_systems(
             OnEnter(GameState::Below),
             (setup_colliders_below, setup_below),
         )
-        .add_systems(
-            OnEnter(GameState::Menu),
-            (spawn_tool_bench, spawn_crops, setup_capsule),
-        )
+        .add_systems(OnEnter(GameState::Menu), (spawn_tool_bench, spawn_crops))
         .add_systems(
             Update,
             (
@@ -77,6 +79,7 @@ fn main() {
             GnomePlugin,
             KillerArmPlugin,
             PlayerPlugin,
+            SurveillancePlugin,
         ))
         .add_plugins(MaterialPlugin::<CapsuleMaterial>::default())
         .run();
@@ -136,7 +139,7 @@ fn setup_shared_colliders(mut commands: Commands) {
 }
 
 fn setup_colliders_below(mut commands: Commands) {
-    for (i, (half_x, half_z, x, z, mult_y, y)) in [
+    for (half_x, half_z, x, z, mult_y, y) in [
         // walls below initial zone
         (2., 10., 20.5, -7.6, 6.0, -27.5),
         (2., 10., 31.5, -7.6, 6.0, -27.5),
@@ -155,20 +158,12 @@ fn setup_colliders_below(mut commands: Commands) {
         (2.0, 52., -78.5, 85., 6., -27.5),   // front wall
         (2.0, 34., -15.5, 95., 6., -27.5),   // bottom wall left
         (2.0, 12.0, -15.5, 65., 6., -27.5),  // bottom right
-    ]
-    .iter()
-    .enumerate()
-    {
-        let cub = Cuboid::new(*half_x, GROUND_Y * mult_y, *half_z);
-        let cub_transform = Transform::from_xyz(*x, *y, *z);
+    ] {
+        let cub = Cuboid::new(half_x, GROUND_Y * mult_y, half_z);
+        let cub_transform = Transform::from_xyz(x, y, z);
         let cub_collider = Collider::from((&cub, &cub_transform));
 
-        commands.spawn((
-            cub_transform,
-            cub_collider,
-            StateScoped(GameState::Below),
-            Name::new(format!("Collider {}", i)),
-        ));
+        commands.spawn((cub_transform, cub_collider, StateScoped(GameState::Below)));
     }
 }
 
@@ -260,7 +255,6 @@ fn setup_below(mut commands: Commands) {
                 ..default()
             },
             Transform::from_xyz(26.0, -20.0, 76.4),
-            Name::new("Corridor1"),
         ),
         (
             PointLight {
@@ -277,7 +271,22 @@ fn setup_below(mut commands: Commands) {
                 ..default()
             },
             Transform::from_xyz(30.0, -21.4, -3.8),
-            Name::new("CorridorFar"),
+        ),
+        (
+            PointLight {
+                color: Color::Srgba(Srgba {
+                    red: 1.0,
+                    green: 0.3,
+                    blue: 0.9,
+                    alpha: 1.0,
+                }),
+                range: 10.,
+                radius: 10.,
+                intensity: 200_000.,
+                shadows_enabled: true,
+                ..default()
+            },
+            Transform::from_xyz(30.0, -21.4, -11.8),
         ),
         (
             PointLight {
@@ -294,7 +303,6 @@ fn setup_below(mut commands: Commands) {
                 ..default()
             },
             Transform::from_xyz(27.0, -15., 7.8),
-            Name::new("LightHint"),
         ),
         (
             PointLight {
@@ -311,7 +319,6 @@ fn setup_below(mut commands: Commands) {
                 ..default()
             },
             Transform::from_xyz(23.56, -15., -7.75),
-            Name::new("LightHint2"),
         ),
     ]);
 }
