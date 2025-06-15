@@ -305,12 +305,10 @@ fn take_snapshots(
 }
 
 #[derive(Component)]
-pub struct SwitchableLight;
-
+pub struct SwitchableLight(Timer);
 /// Switchable
 fn setup_spotlights_below(mut commands: Commands) {
-    // probably I should just bake these, and use the ambient
-    // ligth as a switch
+    let timer = Timer::from_seconds(1.0, TimerMode::Once);
     commands.spawn((
         SpotLight {
             color: Color::srgb(1.0, 1.0, 1.0),
@@ -322,7 +320,7 @@ fn setup_spotlights_below(mut commands: Commands) {
             shadows_enabled: true,
             ..default()
         },
-        SwitchableLight,
+        SwitchableLight(timer),
         Transform::from_xyz(-45., -12., 86.).looking_to(Vec3::NEG_Y, Vec3::Y),
     ));
 }
@@ -330,9 +328,9 @@ fn setup_spotlights_below(mut commands: Commands) {
 #[derive(Event)]
 /// Big button below that
 ///
-/// * [] activates the lights;
+/// * [x] activates the lights;
 /// * [x] changes cameras; and
-/// * [] activates gnomes.
+/// * [x] activates gnomes.
 pub struct ButtonActivated;
 #[derive(Event)]
 pub enum TurnTheLights {
@@ -357,24 +355,35 @@ fn show_player_on_screen(
         }
         light_switch_writer.write(TurnTheLights::On);
         for mut gnome in &mut gnomes {
+            // FIXME: this should have some logic about the player looking, or the player being
+            // behind some stuff, probably at the GnomeMachine level
             gnome.next_state();
         }
     }
 }
 
 fn switch_lights(
+    time: Res<Time>,
     mut ligth_switch_reader: EventReader<TurnTheLights>,
-    mut lights: Query<&mut Visibility, With<SwitchableLight>>,
+    mut lights: Query<(&mut Visibility, &mut SwitchableLight)>,
     mut ambient_light: ResMut<AmbientLight>,
 ) {
-    for ev in ligth_switch_reader.read() {
-        let (vis, brightness) = match ev {
-            TurnTheLights::On => (Visibility::Visible, 200.),
-            TurnTheLights::Off => (Visibility::Hidden, 0.),
-        };
-        ambient_light.brightness = brightness;
-        for mut light in &mut lights {
+    for (mut light, mut timer) in &mut lights {
+        timer.0.tick(time.delta());
+        for ev in ligth_switch_reader.read() {
+            let vis = match ev {
+                TurnTheLights::On => Visibility::Visible,
+                TurnTheLights::Off => Visibility::Hidden,
+            };
+            timer.0.reset();
             *light = vis;
+        }
+        if !timer.0.finished() {
+            let u = match *light {
+                Visibility::Visible => timer.0.fraction(),
+                _ => timer.0.fraction_remaining(),
+            };
+            ambient_light.brightness = u * 200.;
         }
     }
 }

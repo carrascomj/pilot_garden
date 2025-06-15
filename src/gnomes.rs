@@ -214,7 +214,7 @@ fn move_gnome(
                         // set speed proportional to the velocity
                         let speed =
                             spline.velocity(timer.fraction() * spline.segments().len() as f32);
-                        (2, speed.length().max(10.))
+                        (2, (speed.length_squared() / 1000.).clamp(1., 10.))
                     }
                     _ => (1, 1.),
                 };
