@@ -2,7 +2,7 @@
 
 use std::f32::consts::PI;
 
-use crate::config::{GameState, REST_ROT};
+use crate::config::{GameState, REST_ROT, SEEDS_ROT};
 use crate::gnomes::{GnomeMachine, PlatformMover};
 use crate::player_movement::Collider;
 use crate::point_raycast::RayBlocker;
@@ -60,14 +60,7 @@ pub enum Collectible {
 }
 
 impl Collectible {
-    // const fn on_hand_poses(&self) -> (Vec3, Quat) {
-    pub fn on_hand_poses(&self) -> (Vec3, Quat) {
-        let seeds_rot = Quat::from_euler(
-            EulerRot::YXZ,
-            -0.4,  // yaw   -90°  (tip forward)
-            -0.10, // pitch -20°  (look slightly down along it)
-            -0.3,  // roll  +14°  (handle tilt)
-        );
+    pub const fn on_hand_poses(&self) -> (Vec3, Quat) {
         match self {
             Collectible::MiningPick => {
                 const PICK_OFFSET: Vec3 = Vec3::new(1.4, -0.2, -1.8);
@@ -75,7 +68,7 @@ impl Collectible {
             }
             Collectible::Seeds => {
                 const SEED_OFFSET: Vec3 = Vec3::new(1.6, -0.25, -2.8); // X right, Y up, Z forward
-                (SEED_OFFSET, seeds_rot)
+                (SEED_OFFSET, SEEDS_ROT)
             }
             _ => {
                 const FPS_OFFSET: Vec3 = Vec3::new(1.4, -0.25, -1.8); // X right, Y up, Z forward

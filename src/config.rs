@@ -7,7 +7,7 @@ pub const GROUND_Y: f32 = 2.8;
 pub const CAMERA_SENSITIVITY: f32 = 0.003;
 pub const PLAYER_HALF_EXTENTS: Vec3 = Vec3::new(0.4, GROUND_Y, 0.4);
 pub const INTERACTION_DISTANCE: f32 = 8.0;
-/// Equivalent to
+/// Equivalent to (but const)
 ///
 /// ```norun
 /// Quat::from_euler(
@@ -18,6 +18,17 @@ pub const INTERACTION_DISTANCE: f32 = 8.0;
 /// )
 /// ```
 pub const REST_ROT: Quat = Quat::from_xyzw(-0.20896433, -0.6755249, -0.035340607, 0.7062231);
+/// Equivalent to (but const)
+///
+/// ```norun
+/// Quat::from_euler(
+///     EulerRot::YXZ,
+///     -0.4,  // yaw   -90°  (tip forward)
+///     -0.10, // pitch -20°  (look slightly down along it)
+///     -0.3,  // roll  +14°  (handle tilt)
+/// );
+/// ```
+pub const SEEDS_ROT: Quat = Quat::from_xyzw(-0.018781215, -0.2035129, -0.15609413, 0.96636665);
 /// Bounds to limit the spawning on things in the crop ground.
 pub const MIN_CROP_BOUNDS: Vec3 = Vec3::new(18.6, -20.0, -8.5);
 pub const MAX_CROP_BOUNDS: Vec3 = Vec3::new(29.5, 20.0, 0.);
