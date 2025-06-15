@@ -105,6 +105,8 @@ fn spawn_sun(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut streetlight_handle: Local<Option<Handle<Scene>>>,
 ) {
+    // FIXME: should balance day_secs, function of time
+    // night timer and the killer time
     let day_secs = 180.;
     let init_pos = Vec3::new(10.0, 4.0, 30.);
     let sun_radius = 100.;

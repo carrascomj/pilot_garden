@@ -170,12 +170,14 @@ fn setup_colliders_below(mut commands: Commands) {
 /// If the player has managed to dig enough, switch to below.
 fn transit_to_below(
     mut next_state: ResMut<NextState<GameState>>,
-    // mut ambient_light: ResMut<AmbientLight>,
+    mut ambient_light: ResMut<AmbientLight>,
     player: Single<&Transform, With<Player>>,
 ) {
     if player.translation.y < -8. {
         next_state.set(GameState::Below);
-        // ambient_light.brightness = 0.
+        // just to see a bit better in the interiors
+        // although this will be overriden by the gnomes sometimes
+        ambient_light.brightness = 200.
     }
 }
 

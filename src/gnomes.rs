@@ -8,6 +8,7 @@ use crate::{
     config::GameState,
     digging::{Life, Minable},
     player_movement::{Collider, Player},
+    surveillance::TurnTheLights,
 };
 
 const GNOME_SIZE: Vec3 = Vec3::new(0.5, 1.5, 0.5);
@@ -15,10 +16,15 @@ const GNOME_VIEW_DISTANCE_POW2: f32 = 100.;
 const COS_THRESHOLD: f32 = 0.70710677; // cos(PI / 4)
 // TODO: set this actually right
 const GNOME_VELOCITY: f32 = 20.;
-const ALERTER_POSITIONS: [Vec2; 3] = [
-    Vec2::new(10., 20.),
-    Vec2::new(10. - 5., 20.),
-    Vec2::new(10. - 5., 20. - 9.),
+const ALERTER_POSITIONS: [Vec2; 8] = [
+    Vec2::new(31., -12.2),
+    Vec2::new(31., -4.),
+    Vec2::new(25.685, -4.),
+    Vec2::new(25.685, 20.),
+    Vec2::new(25.685, 40.),
+    Vec2::new(25., 75.),
+    Vec2::new(-25., 75.),
+    Vec2::new(-22.415, 103.86),
 ];
 
 /// Spawn gnomes were relevant and control the state machine,
@@ -40,7 +46,7 @@ pub enum GnomeState {
     Inactive,
     Active,
     LoadingBanana,
-    DroppingBanana,
+    DroppingBanana(Timer),
     Moving {
         timer: Timer,
         /// Vec2 since the gnomes do not fly
@@ -68,9 +74,11 @@ impl GnomeMachine {
         self.state = match self.state {
             GnomeState::Dying | GnomeState::Attacking => return,
             GnomeState::Inactive => GnomeState::Dying,
-            GnomeState::LoadingBanana => GnomeState::DroppingBanana,
-            GnomeState::DroppingBanana => GnomeState::Moving {
-                timer: Timer::from_seconds(7., TimerMode::Once),
+            GnomeState::LoadingBanana => {
+                GnomeState::DroppingBanana(Timer::from_seconds(2., TimerMode::Once))
+            }
+            GnomeState::DroppingBanana(_) => GnomeState::Moving {
+                timer: Timer::from_seconds(14., TimerMode::Once),
                 spline: CubicCardinalSpline {
                     tension: 0.1,
                     control_points: ALERTER_POSITIONS.into(),
@@ -112,6 +120,7 @@ fn spawn_gnomes_above(
         asset_server.load(GltfAssetLabel::Animation(0).from_asset(GNOME_PATH)), // die
         asset_server.load(GltfAssetLabel::Animation(1).from_asset(GNOME_PATH)), // idle
         asset_server.load(GltfAssetLabel::Animation(2).from_asset(GNOME_PATH)), // run
+        asset_server.load(GltfAssetLabel::Animation(4).from_asset(GNOME_PATH)), // wow
     ]);
     let graph_handle = graphs.add(graph);
     commands.insert_resource(Animations {
@@ -134,6 +143,22 @@ fn spawn_gnomes_above(
             first = false;
         }
     }
+
+    // initial gnome below, we spawn with the ones because it is is the first
+    // thing the player sees below
+    let (x, y, z) = (31., -26.3, -12.2);
+    commands.spawn((
+        SceneRoot(gnome.clone()),
+        HasAnimationChild(None),
+        GnomeMachine {
+            state: GnomeState::LoadingBanana,
+            is_changed: false,
+        },
+        Collider::from_translation(Vec3::new(x, y, z) + Vec3::Y * 0.5, GNOME_SIZE),
+        Transform::from_xyz(x, y, z).with_rotation(Quat::from_rotation_y(2.3)),
+        Minable,
+        Life::JustSpawned,
+    ));
 }
 
 fn setup_animations(
@@ -171,6 +196,7 @@ fn setup_animations(
 fn move_gnome(
     time: Res<Time>,
     animations: Res<Animations>,
+    mut light_switch_event: EventWriter<TurnTheLights>,
     mut gnomes: Query<(&mut GnomeMachine, &HasAnimationChild, &mut Transform)>,
     mut animation_players: Query<(&mut AnimationPlayer, &mut AnimationTransitions)>,
     player_transform: Query<&Transform, (With<Player>, Without<GnomeMachine>)>,
@@ -179,14 +205,18 @@ fn move_gnome(
         // change the animation itself
         if gnome.is_changed {
             if let Some(anim_entity) = has_anim.0 {
-                let anim_index = match &mut gnome.state {
-                    GnomeState::Dying => 0,
-                    GnomeState::Attacking => 2,
-                    GnomeState::Moving { timer, spline: _ } => {
+                let (anim_index, speed) = match &mut gnome.state {
+                    GnomeState::Dying => (0, 1.),
+                    GnomeState::Attacking => (2, 1.),
+                    GnomeState::DroppingBanana(_) => (3, 1.),
+                    GnomeState::Moving { timer, spline } => {
                         timer.unpause();
-                        2
+                        // set speed proportional to the velocity
+                        let speed =
+                            spline.velocity(timer.fraction() * spline.segments().len() as f32);
+                        (2, speed.length().max(10.))
                     }
-                    _ => 1,
+                    _ => (1, 1.),
                 };
                 if let Ok((mut player, mut transitions)) = animation_players.get_mut(anim_entity) {
                     let active_animation = transitions.play(
@@ -199,6 +229,7 @@ fn move_gnome(
                     // player won't the see the gnome at the end of `Moving`.
                     if anim_index == 2 {
                         active_animation.repeat();
+                        active_animation.set_speed(speed);
                     }
                     active_animation.replay();
                 }
@@ -211,6 +242,7 @@ fn move_gnome(
                 if !timer.finished() {
                     timer.tick(time.delta());
                     let u = timer.fraction(); // [0,1]
+                    // let t = u * spline.segments().len() as f32;
                     let t = u * spline.segments().len() as f32;
                     let Vec2 { x, y: z } = spline.position(t);
                     let Vec2 { x: dx, y: dz } = spline.velocity(t);
@@ -222,6 +254,8 @@ fn move_gnome(
                             .with_translation(next_position)
                             .looking_at(next_position + direction, Vec3::Y);
                     }
+                } else {
+                    gnome.next_state();
                 }
             }
             GnomeState::Attacking => {
@@ -243,7 +277,6 @@ fn move_gnome(
                     continue;
                 };
                 let mut to_player = target.translation - transform.translation;
-                to_player.y = 0.0;
 
                 if to_player.length_squared() > GNOME_VIEW_DISTANCE_POW2 {
                     continue; // player too far
@@ -256,6 +289,7 @@ fn move_gnome(
                     continue; // no horizontal forward
                 }
 
+                to_player.y = 0.0;
                 // a . b = |a| |b| cos(ɑ)
                 let dir_norm = to_player.normalize();
                 let fwd_norm = forward.normalize();
@@ -264,6 +298,19 @@ fn move_gnome(
                 let dot = fwd_norm.dot(dir_norm);
                 if dot >= COS_THRESHOLD {
                     gnome.next_state();
+                }
+            }
+            GnomeState::DroppingBanana(timer) => {
+                if !timer.finished() {
+                    timer.tick(time.delta());
+                    let Ok(target) = player_transform.single() else {
+                        continue;
+                    };
+                    let dir = (target.translation - transform.translation).with_y(0.);
+                    transform.look_to(dir, Vec3::Y);
+                } else {
+                    light_switch_event.write(TurnTheLights::Off);
+                    gnome.next_state()
                 }
             }
             _ => (),

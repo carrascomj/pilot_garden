@@ -1,7 +1,7 @@
 //! Setup for cameras that render to a texture, as surveillance cameras.
 
 use std::{
-    f32::consts::{FRAC_PI_2, FRAC_PI_4},
+    f32::consts::{FRAC_PI_2, FRAC_PI_4, PI},
     time::Duration,
 };
 
@@ -17,6 +17,7 @@ use bevy::{
 use crate::{
     config::GameState,
     digging::{Collectible, OnHand},
+    gnomes::GnomeMachine,
     world_timer::TimerComp,
 };
 
@@ -28,12 +29,16 @@ impl Plugin for SurveillancePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<RenderMaterials>()
             .add_event::<ButtonActivated>()
-            .add_systems(OnEnter(GameState::Below), setup_surveillance_cameras)
+            .add_event::<TurnTheLights>()
+            .add_systems(
+                OnEnter(GameState::Below),
+                (setup_surveillance_camera, setup_spotlights_below),
+            )
             .add_systems(OnExit(GameState::Menu), setup_surveillance_screenshots)
             .add_systems(Update, take_snapshots.run_if(in_state(GameState::Above)))
             .add_systems(
                 Update,
-                show_player_on_screen.run_if(in_state(GameState::Below)),
+                (show_player_on_screen, switch_lights).run_if(in_state(GameState::Below)),
             );
     }
 }
@@ -181,7 +186,9 @@ fn setup_surveillance_screenshots(
     });
 }
 
-fn setup_surveillance_cameras(
+/// This is the camera that looks at the button and replaces
+/// all screens when the button is pressed.
+fn setup_surveillance_camera(
     mut commands: Commands,
     mut images: ResMut<Assets<Image>>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -267,30 +274,6 @@ fn setup_surveillance_cameras(
     ));
 }
 
-#[derive(Event)]
-/// Big button below that
-///
-/// * [] activates the lights;
-/// * [x] changes cameras; and
-/// * [] activates gnomes.
-pub struct ButtonActivated;
-
-/// Make the big screens show the camera looking at the player.
-fn show_player_on_screen(
-    mut event_reader: EventReader<ButtonActivated>,
-    mut commands: Commands,
-    render_materials: Res<RenderMaterials>,
-    mut big_screens: Query<Entity, With<BigScreen>>,
-) {
-    for _ev in event_reader.read() {
-        for big_screen in &mut big_screens {
-            commands.entity(big_screen).insert(MeshMaterial3d(
-                render_materials.to_button.as_ref().unwrap().clone(),
-            ));
-        }
-    }
-}
-
 /// Make the [`Snapshoter`] cameras active from time to
 /// time to put the camera in the screen.
 fn take_snapshots(
@@ -317,6 +300,81 @@ fn take_snapshots(
                 cam.is_active = false;
                 cam.output_mode = CameraOutputMode::Skip;
             }
+        }
+    }
+}
+
+#[derive(Component)]
+pub struct SwitchableLight;
+
+/// Switchable
+fn setup_spotlights_below(mut commands: Commands) {
+    // probably I should just bake these, and use the ambient
+    // ligth as a switch
+    commands.spawn((
+        SpotLight {
+            color: Color::srgb(1.0, 1.0, 1.0),
+            intensity: 1000_000.0,
+            // avoid casting shadows over the streetlight mesh
+            shadow_depth_bias: 1.0,
+            range: 100., // penumbra size
+            outer_angle: PI,
+            shadows_enabled: true,
+            ..default()
+        },
+        SwitchableLight,
+        Transform::from_xyz(-45., -12., 86.).looking_to(Vec3::NEG_Y, Vec3::Y),
+    ));
+}
+
+#[derive(Event)]
+/// Big button below that
+///
+/// * [] activates the lights;
+/// * [x] changes cameras; and
+/// * [] activates gnomes.
+pub struct ButtonActivated;
+#[derive(Event)]
+pub enum TurnTheLights {
+    On,
+    Off,
+}
+
+/// Make the big screens show the camera looking at the player.
+fn show_player_on_screen(
+    mut button_reader: EventReader<ButtonActivated>,
+    mut light_switch_writer: EventWriter<TurnTheLights>,
+    mut commands: Commands,
+    render_materials: Res<RenderMaterials>,
+    mut big_screens: Query<Entity, With<BigScreen>>,
+    mut gnomes: Query<&mut GnomeMachine>,
+) {
+    for _ev in button_reader.read() {
+        for big_screen in &mut big_screens {
+            commands.entity(big_screen).insert(MeshMaterial3d(
+                render_materials.to_button.as_ref().unwrap().clone(),
+            ));
+        }
+        light_switch_writer.write(TurnTheLights::On);
+        for mut gnome in &mut gnomes {
+            gnome.next_state();
+        }
+    }
+}
+
+fn switch_lights(
+    mut ligth_switch_reader: EventReader<TurnTheLights>,
+    mut lights: Query<&mut Visibility, With<SwitchableLight>>,
+    mut ambient_light: ResMut<AmbientLight>,
+) {
+    for ev in ligth_switch_reader.read() {
+        let (vis, brightness) = match ev {
+            TurnTheLights::On => (Visibility::Visible, 200.),
+            TurnTheLights::Off => (Visibility::Hidden, 0.),
+        };
+        ambient_light.brightness = brightness;
+        for mut light in &mut lights {
+            *light = vis;
         }
     }
 }

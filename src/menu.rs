@@ -4,7 +4,13 @@ use bevy::{
     window::CursorOptions,
 };
 
-use crate::{Capsule, config::GameState, dodgy::ArchAnimation, world_timer::TimerComp};
+use crate::{
+    Capsule,
+    config::GameState,
+    digging::{Collectible, OnHand},
+    dodgy::ArchAnimation,
+    world_timer::TimerComp,
+};
 
 pub struct GameMenu;
 
@@ -41,7 +47,16 @@ fn spawn_game_menu(
     asset_server: Res<AssetServer>,
     mut ui_materials: ResMut<Assets<HibernationMaterial>>,
     mut window: Single<&mut Window>,
+    collectibles: Query<(Entity, &OnHand), With<Collectible>>,
 ) {
+    // first, remove all onhand collectibles. Otherwise, the
+    // player could just die with a full shovel and beat the game
+    for (ent, on_hand) in &collectibles {
+        if on_hand.active {
+            commands.entity(ent).despawn()
+        }
+    }
+
     commands.spawn((
         Node {
             width: Val::Percent(100.0),
