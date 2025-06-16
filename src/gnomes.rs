@@ -120,7 +120,7 @@ fn spawn_gnomes_above(
         asset_server.load(GltfAssetLabel::Animation(0).from_asset(GNOME_PATH)), // die
         asset_server.load(GltfAssetLabel::Animation(1).from_asset(GNOME_PATH)), // idle
         asset_server.load(GltfAssetLabel::Animation(2).from_asset(GNOME_PATH)), // run
-        asset_server.load(GltfAssetLabel::Animation(4).from_asset(GNOME_PATH)), // wow
+        asset_server.load(GltfAssetLabel::Animation(3).from_asset(GNOME_PATH)), // wow
     ]);
     let graph_handle = graphs.add(graph);
     commands.insert_resource(Animations {
@@ -222,7 +222,7 @@ fn move_gnome(
                     let active_animation = transitions.play(
                         &mut player,
                         animations.animations[anim_index],
-                        Duration::from_millis(2),
+                        Duration::from_millis(100),
                     );
                     // if running, repeat forever, it is more menacing in Game Over
                     // that the gnomes just keep moving towards the player and the
