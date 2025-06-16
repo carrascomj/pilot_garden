@@ -102,7 +102,11 @@ fn setup_colliders_above(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>
         // floor (subdivided to accomodate dirt colliders, rest in shared colliders)
         (26.0, 22.0, 5.0, 0.0, 1.0, -1.2),
         // fake bush safe zone
-        (20.0, 20.0, 24.0, 20.0, 1.0, -4.0),
+        (20.0, 20.0, 24.0, 20.0, 1.0, -4.0), // floor
+        (2., 20., 16., 20.3106, 8.0, -2.0),  // right wall
+        (2., 20., 25., 20.3106, 8.0, -2.0),  // left wall
+        (14., 2., 23., 25., 8.0, -2.0),      // front wall
+        (8., 2., 23., 13., 8.0, -2.0),       // back wall
     ] {
         let cub = Cuboid::new(half_x, GROUND_Y * mult_y, half_z);
         let cub_transform = Transform::from_xyz(x, y, z);
