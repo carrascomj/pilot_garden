@@ -380,10 +380,10 @@ fn switch_lights(
         }
         if !timer.0.finished() {
             let u = match *light {
-                Visibility::Visible => timer.0.fraction(),
-                _ => timer.0.fraction_remaining(),
+                Visibility::Visible => timer.0.fraction() + 0.05,
+                _ => timer.0.fraction_remaining() - 0.05,
             };
-            ambient_light.brightness = u * 200.;
+            ambient_light.brightness = u.clamp(0., 1.) * 200.;
         }
     }
 }

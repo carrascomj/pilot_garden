@@ -17,12 +17,13 @@ pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, spawn_player)
-            .add_systems(OnExit(GameState::Menu), reset_player)
+            .add_systems(OnEnter(GameState::Menu), reset_player)
             .add_systems(Update, load_skybox.run_if(in_state(GameState::Above)))
             .add_systems(
                 Update,
                 (move_player, advance_physics, interpolate_rendered_transform)
-                    .run_if(not(in_state(GameState::Menu))),
+                    .run_if(not(in_state(GameState::Menu)))
+                    .run_if(not(in_state(GameState::GameOver))),
             );
     }
 }
@@ -118,6 +119,7 @@ fn load_skybox(
 }
 
 fn reset_player(
+    mut ambient_light: ResMut<AmbientLight>,
     mut player: Single<
         (
             &mut Transform,
@@ -128,6 +130,9 @@ fn reset_player(
         With<Player>,
     >,
 ) {
+    // default
+    ambient_light.brightness = 80.;
+
     *player.0 =
         Transform::from_translation(START_POS).looking_at(Vec3::new(0.0, 1.0, 0.0), Vec3::Y);
     player.1.0 = START_POS;

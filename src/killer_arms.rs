@@ -178,7 +178,6 @@ fn activate_lasers(
     names: Query<(Entity, &Name)>,
 ) {
     for (dodgy_timer, show, children) in &killers {
-        // TODO: should go down the hierarchy.
         if dodgy_timer.0.just_finished() && show.show {
             for child in children {
                 if let Ok(down_children) = parents.get(*child) {
@@ -235,7 +234,7 @@ fn draw_lasers(
                 );
                 if killer_timer.timer.just_finished() && killer_timer.can_kill {
                     if player.0 == *target_entity {
-                        next_state.set(GameState::Menu);
+                        next_state.set(GameState::GameOver);
                         break;
                     } else {
                         killer_timer.can_kill = false;

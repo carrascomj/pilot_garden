@@ -33,10 +33,16 @@ pub struct GnomePlugin;
 
 impl Plugin for GnomePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, spawn_gnomes_above).add_systems(
-            Update,
-            (setup_animations, move_gnome).run_if(not(in_state(GameState::Menu))),
-        );
+        // above gnomes are persistent over runs
+        app.add_systems(Startup, spawn_gnomes_above)
+            // below gnome are statescoped to Below
+            .add_systems(OnEnter(GameState::Below), spawn_gnomes_below)
+            .add_systems(
+                Update,
+                (setup_animations, move_gnome)
+                    .run_if(not(in_state(GameState::Menu)))
+                    .run_if(not(in_state(GameState::GameOver))),
+            );
     }
 }
 
@@ -98,6 +104,10 @@ struct Animations {
     animations: Vec<AnimationNodeIndex>,
     graph_handle: Handle<AnimationGraph>,
 }
+#[derive(Resource)]
+struct GnomeHandle {
+    handle: Handle<Scene>,
+}
 
 /// Marker for entities that have an ([`AnimationPlayer`], [`AnimationTransitions`])
 /// enitity as a child.
@@ -114,6 +124,9 @@ fn spawn_gnomes_above(
 ) {
     const GNOME_PATH: &str = "gnome.glb";
     let gnome = asset_server.load(GltfAssetLabel::Scene(0).from_asset(GNOME_PATH));
+    commands.insert_resource(GnomeHandle {
+        handle: gnome.clone(),
+    });
 
     // save animations in resource to add them later after the gnome scene is loaded
     let (graph, node_indices) = AnimationGraph::from_clips([
@@ -143,12 +156,13 @@ fn spawn_gnomes_above(
             first = false;
         }
     }
+}
 
-    // initial gnome below, we spawn with the ones because it is is the first
-    // thing the player sees below
+fn spawn_gnomes_below(mut commands: Commands, gnome_asset: Res<GnomeHandle>) {
     let (x, y, z) = (31., -26.3, -12.2);
     commands.spawn((
-        SceneRoot(gnome.clone()),
+        SceneRoot(gnome_asset.handle.clone()),
+        StateScoped(GameState::Below),
         HasAnimationChild(None),
         GnomeMachine {
             state: GnomeState::LoadingBanana,
@@ -196,6 +210,7 @@ fn setup_animations(
 fn move_gnome(
     time: Res<Time>,
     animations: Res<Animations>,
+    mut next_game_state: ResMut<NextState<GameState>>,
     mut light_switch_event: EventWriter<TurnTheLights>,
     mut gnomes: Query<(&mut GnomeMachine, &HasAnimationChild, &mut Transform)>,
     mut animation_players: Query<(&mut AnimationPlayer, &mut AnimationTransitions)>,
@@ -267,6 +282,9 @@ fn move_gnome(
                         transform.translation =
                             transform.translation + (dir * delta * GNOME_VELOCITY);
                         transform.look_to(dir, Vec3::Y);
+                    } else {
+                        next_game_state.set(GameState::GameOver);
+                        break;
                     };
                 }
             }

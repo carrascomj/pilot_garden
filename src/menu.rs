@@ -56,7 +56,6 @@ fn spawn_game_menu(
             commands.entity(ent).despawn()
         }
     }
-
     commands.spawn((
         Node {
             width: Val::Percent(100.0),

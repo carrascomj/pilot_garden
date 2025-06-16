@@ -11,6 +11,7 @@ use std::{f32::consts::TAU, time::Duration};
 mod config;
 mod digging;
 mod dodgy;
+mod game_over;
 mod gnomes;
 mod killer_arms;
 mod menu;
@@ -21,6 +22,7 @@ mod world_timer;
 
 use digging::{DiggingPlugin, Life, Minable, OneSizeCollider};
 use dodgy::{Dodgy, DodgyPlugin};
+use game_over::GameOver;
 use gnomes::GnomePlugin;
 use killer_arms::{KillerArmPlugin, KillerHead, KillerPoint, KillerTimer};
 use player_movement::{Collider, Player, PlayerPlugin};
@@ -76,6 +78,7 @@ fn main() {
             DodgyPlugin,
             FirstPersonPickerPlugin,
             GameMenu,
+            GameOver,
             GnomePlugin,
             KillerArmPlugin,
             PlayerPlugin,
