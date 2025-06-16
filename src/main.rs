@@ -110,6 +110,10 @@ fn setup_colliders_above(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>
         // good ending exit
         (1., 1., 25., 7.78, 1.0, -4.0), // back wall
         (1., 1., 25., 5.78, 1.0, -4.0), // back wall
+        // crops walls
+        (12., 8., 24.367, -3.1745, 1.0, -8.), // main floor
+        (6., 2., 27.367, -8.1745, 1.0, -8.),  // right of passage floor
+        (4., 2., 20.367, -8.1745, 1.0, -8.),  // left of passage floor
     ] {
         let cub = Cuboid::new(half_x, GROUND_Y * mult_y, half_z);
         let cub_transform = Transform::from_xyz(x, y, z);
