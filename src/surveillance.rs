@@ -308,7 +308,8 @@ fn take_snapshots(
 pub struct SwitchableLight(Timer);
 /// Switchable
 fn setup_spotlights_below(mut commands: Commands) {
-    let timer = Timer::from_seconds(1.0, TimerMode::Once);
+    let mut timer = Timer::from_seconds(1.0, TimerMode::Once);
+    timer.pause();
     commands.spawn((
         SpotLight {
             color: Color::srgb(1.0, 1.0, 1.0),
@@ -375,6 +376,7 @@ fn switch_lights(
                 TurnTheLights::On => Visibility::Visible,
                 TurnTheLights::Off => Visibility::Hidden,
             };
+            timer.0.unpause();
             timer.0.reset();
             *light = vis;
         }
