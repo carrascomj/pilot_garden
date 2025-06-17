@@ -58,10 +58,10 @@ fn spawn_killing_arm(
         .as_ref()
         .expect("This is always loaded before");
     for killer_position in [
-        Vec3::new(8., 0., -15.),
-        Vec3::new(8., 0., 15.),
-        Vec3::new(34.5, 0., 0.),
-        Vec3::new(-14., 0., 0.),
+        Vec3::new(8., 6., -22.),
+        Vec3::new(8., 6., 22.),
+        Vec3::new(39., 5.5, 0.),
+        Vec3::new(-19., 5.5, 0.),
     ] {
         let show_time = 10.;
         let mut timer = TimerComp::from_elapsed(show_time);
@@ -97,8 +97,8 @@ fn setup_inverse_kinematics(
             for child in children {
                 if let Ok(ik_bone) = find_entity(*child, "ik_target", parents, names) {
                     commands.entity(ik_bone).insert(IkConstraint {
-                        chain_length: 4,
-                        iterations: 300,
+                        chain_length: 11,
+                        iterations: 500,
                         target: killer_bone,
                         pole_target: None,
                         pole_angle: -std::f32::consts::FRAC_PI_2,
