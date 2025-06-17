@@ -129,7 +129,15 @@ fn cast_player_ray(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     mut ray_cast: MeshRayCast,
     player_q: Single<&GlobalTransform, With<Player>>,
-    mut cross_q: Single<(&mut BorderColor, &mut BackgroundColor, &mut Outline), With<Cross>>,
+    mut cross_q: Single<
+        (
+            &mut BorderColor,
+            &mut BackgroundColor,
+            &mut Outline,
+            &mut Node,
+        ),
+        With<Cross>,
+    >,
     diggables: Query<Entity, With<Diggable>>,
     mut minables: Query<&mut Life, With<Minable>>,
     mut collectables: Query<(
@@ -182,11 +190,15 @@ fn cast_player_ray(
                 *cross_q.0 = BorderColor(Color::srgba(0., 0., 0., 0.2));
                 *cross_q.1 = BackgroundColor(Color::srgba(0., 0., 0., 0.2));
                 cross_q.2.color = Color::srgba(0., 0., 0., 0.2);
+                cross_q.3.height = Val::Vh(1.);
+                cross_q.3.width = Val::Vh(1.);
                 return;
             }
-            *cross_q.0 = BorderColor(Color::srgba(1.0, 0.3, 0.9, 0.7));
-            *cross_q.1 = BackgroundColor(Color::srgba(1.0, 0.3, 0.9, 0.7));
-            cross_q.2.color = Color::srgba(1.0, 0.3, 0.9, 0.7);
+            *cross_q.0 = BorderColor(Color::srgba(0.3, 1.0, 0.4, 0.7));
+            *cross_q.1 = BackgroundColor(Color::srgba(0.3, 1.0, 0.4, 0.7));
+            cross_q.2.color = Color::srgba(0.3, 1.0, 0.4, 0.7);
+            cross_q.3.height = Val::Vh(2.);
+            cross_q.3.width = Val::Vh(2.);
             if mouse_button_input.just_pressed(MouseButton::Left) {
                 if let Ok((ent, mut transform, collectible, mut on_hand, _)) =
                     collectables.get_mut(*trigger)
@@ -255,11 +267,15 @@ fn cast_player_ray(
             *cross_q.0 = BorderColor(Color::srgba(0., 0., 0., 0.2));
             *cross_q.1 = BackgroundColor(Color::srgba(0., 0., 0., 0.2));
             cross_q.2.color = Color::srgba(0., 0., 0., 0.2);
+            cross_q.3.height = Val::Vh(1.);
+            cross_q.3.width = Val::Vh(1.);
         }
     } else {
         *cross_q.0 = BorderColor(Color::srgba(0., 0., 0., 0.2));
         *cross_q.1 = BackgroundColor(Color::srgba(0., 0., 0., 0.2));
         cross_q.2.color = Color::srgba(0., 0., 0., 0.2);
+        cross_q.3.height = Val::Vh(1.);
+        cross_q.3.width = Val::Vh(1.);
     }
 }
 
