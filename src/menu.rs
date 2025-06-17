@@ -22,7 +22,12 @@ const PRESSED_COLOR: Color = Color::srgb(1.0, 1.0, 1.0); // white blue
 impl Plugin for GameMenu {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(GameState::Menu), spawn_game_menu)
-            .add_systems(Update, button_system.run_if(in_state(GameState::Menu)))
+            .add_systems(Startup, spawn_exit_menu)
+            .add_systems(Update, button_system)
+            .add_systems(
+                Update,
+                toggle_exit_menu.run_if(not(in_state(GameState::Menu))),
+            )
             // will run even after GameState menu since it has to play the animation for awakening
             .add_systems(Last, update_time)
             .add_plugins(UiMaterialPlugin::<HibernationMaterial>::default());
@@ -31,9 +36,10 @@ impl Plugin for GameMenu {
 
 /// Attached to button entities to decide action on press.
 #[derive(Component)]
-enum ButtonAction {
+pub enum ButtonAction {
     StartGame,
     ShowSettings,
+    Exit,
 }
 
 /// Marker for start menu.
@@ -85,7 +91,7 @@ fn spawn_game_menu(
                 children![(
                     Node {
                         width: Val::Px(350.0),
-                        height: Val::Px(200.0),
+                        height: Val::Px(300.0),
                         flex_direction: FlexDirection::Column,
                         justify_content: JustifyContent::SpaceBetween,
                         align_items: AlignItems::Center,
@@ -149,6 +155,38 @@ fn spawn_game_menu(
                             ),
                             children![(
                                 Text::new("SETTINGS"),
+                                TextFont {
+                                    font: asset_server.load("fonts/Silkscreen-Bold.ttf"),
+                                    font_size: 33.0,
+                                    ..default()
+                                },
+                                TextColor(BUTTON_COLOR),
+                                TextShadow::default(),
+                            )]
+                        ),
+                        (
+                            Button,
+                            ButtonAction::Exit,
+                            Node {
+                                width: Val::Px(150.0),
+                                height: Val::Px(65.0),
+                                border: UiRect::all(Val::Px(5.0)),
+                                // horizontally center child text
+                                justify_content: JustifyContent::Center,
+                                // vertically center child text
+                                align_items: AlignItems::Center,
+                                ..default()
+                            },
+                            BorderColor(BUTTON_COLOR),
+                            BoxShadow::new(
+                                BUTTON_COLOR.with_alpha(0.2),
+                                Val::Percent(0.),
+                                Val::Percent(0.),
+                                Val::Percent(3.0),
+                                Val::Px(3.0),
+                            ),
+                            children![(
+                                Text::new("EXIT"),
                                 TextFont {
                                     font: asset_server.load("fonts/Silkscreen-Bold.ttf"),
                                     font_size: 33.0,
@@ -241,7 +279,8 @@ impl UiMaterial for HibernationMaterial {
 
 fn button_system(
     mut commands: Commands,
-    mut interaction_query: Query<
+    mut app_exit_events: EventWriter<AppExit>,
+    mut interaction_query: Populated<
         (
             &Interaction,
             &mut BoxShadow,
@@ -256,7 +295,8 @@ fn button_system(
     mut ui_materials: ResMut<Assets<HibernationMaterial>>,
     to_rm_on_start: Query<Entity, With<RemoveOnStart>>,
 ) {
-    for (interaction, mut box_shadow, mut border_color, children, action) in &mut interaction_query
+    for (interaction, mut box_shadow, mut border_color, children, action) in
+        interaction_query.iter_mut()
     {
         let mut text_color = text_query.get_mut(children[0]).unwrap();
         match *interaction {
@@ -278,6 +318,9 @@ fn button_system(
                             commands.entity(to_rm).despawn();
                         }
                     }
+                    ButtonAction::Exit => {
+                        app_exit_events.write(AppExit::Success);
+                    }
                     _ => (),
                 }
             }
@@ -292,5 +335,113 @@ fn button_system(
                 *text_color = BUTTON_COLOR.into();
             }
         }
+    }
+}
+
+#[derive(Component)]
+struct ExitEscMenu;
+
+fn spawn_exit_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.spawn((
+        Node {
+            display: Display::Flex,
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            align_self: AlignSelf::Center,
+            justify_self: JustifySelf::Center,
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            flex_direction: FlexDirection::Column,
+            ..default()
+        },
+        ExitEscMenu,
+        Visibility::Hidden,
+        BackgroundColor(Color::BLACK.with_alpha(0.8)),
+        children![(
+            Node {
+                width: Val::Px(300.0),
+                height: Val::Px(250.0),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::SpaceEvenly,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            BorderColor(BUTTON_COLOR.with_alpha(0.8)),
+            Outline {
+                width: Val::Px(6.),
+                offset: Val::Px(6.),
+                color: BUTTON_COLOR,
+            },
+            BoxShadow::new(
+                BUTTON_COLOR.with_alpha(0.2),
+                Val::Percent(0.),
+                Val::Percent(0.),
+                Val::Percent(3.0),
+                Val::Px(3.0),
+            ),
+            children![
+                (
+                    Button,
+                    ButtonAction::Exit,
+                    Node {
+                        width: Val::Px(150.0),
+                        height: Val::Px(65.0),
+                        border: UiRect::all(Val::Px(5.0)),
+                        // horizontally center child text
+                        justify_content: JustifyContent::Center,
+                        // vertically center child text
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    BorderColor(BUTTON_COLOR),
+                    BoxShadow::new(
+                        BUTTON_COLOR.with_alpha(0.2),
+                        Val::Percent(0.),
+                        Val::Percent(0.),
+                        Val::Percent(3.0),
+                        Val::Px(3.0),
+                    ),
+                    children![(
+                        Text::new("EXIT"),
+                        TextFont {
+                            font: asset_server.load("fonts/Silkscreen-Bold.ttf"),
+                            font_size: 33.0,
+                            ..default()
+                        },
+                        TextColor(BUTTON_COLOR),
+                        TextShadow::default(),
+                    )]
+                ),
+                (
+                    Text::new("<ESC> to hide menu"),
+                    TextFont {
+                        font: asset_server.load("fonts/Silkscreen-Bold.ttf"),
+                        font_size: 28.0,
+                        ..default()
+                    },
+                    TextLayout {
+                        justify: JustifyText::Center,
+                        ..default()
+                    },
+                    TextColor(BUTTON_COLOR),
+                    TextShadow::default(),
+                )
+            ]
+        ),],
+    ));
+}
+
+fn toggle_exit_menu(
+    mut window: Single<&mut Window>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut exit_menu: Single<&mut Visibility, With<ExitEscMenu>>,
+) {
+    if keyboard_input.just_pressed(KeyCode::Escape) {
+        let cursor_visible = match **exit_menu {
+            Visibility::Visible => false,
+            _ => true,
+        };
+        window.cursor_options.visible = cursor_visible;
+        exit_menu.toggle_visible_hidden();
     }
 }
