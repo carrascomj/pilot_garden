@@ -53,7 +53,6 @@ fn fade_in_game_over(
     mut player: Single<&mut Transform, With<Player>>,
 ) {
     if screen.1.0.finished() {
-        println!("to menu!");
         next_state.set(GameState::Menu);
     }
     // fade in animation

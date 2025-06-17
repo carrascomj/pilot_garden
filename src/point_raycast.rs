@@ -5,6 +5,7 @@
 use crate::{
     config::{GameState, INTERACTION_DISTANCE},
     digging::{Collectible, Diggable, Life, Minable, OnHand, RemoveTimer, SeedsPlaced},
+    gnomes::GnomeMachine,
     player_movement::{Collider, Player},
     surveillance::ButtonActivated,
     world_timer::TimerComp,
@@ -13,7 +14,7 @@ use bevy::{
     ecs::{archetype::ArchetypeId, query::QueryEntityError},
     prelude::*,
 };
-// use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::FilterQueryInspectorPlugin};
+use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::FilterQueryInspectorPlugin};
 
 pub struct FirstPersonPickerPlugin;
 
@@ -32,10 +33,10 @@ impl Plugin for FirstPersonPickerPlugin {
             );
         if cfg!(debug_assertions) {
             app.init_gizmo_group::<MyRoundGizmos>()
-                // .add_plugins(EguiPlugin {
-                //     enable_multipass_for_primary_context: true,
-                // })
-                // .add_plugins(FilterQueryInspectorPlugin::<With<RayBlocker>>::default())
+                .add_plugins(EguiPlugin {
+                    enable_multipass_for_primary_context: true,
+                })
+                .add_plugins(FilterQueryInspectorPlugin::<With<GnomeMachine>>::default())
                 .add_systems(Update, (activate_gizmos, draw_collider_gizmos));
         }
     }

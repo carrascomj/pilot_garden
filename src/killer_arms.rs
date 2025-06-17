@@ -15,10 +15,7 @@ pub struct KillerArmPlugin;
 impl Plugin for KillerArmPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(InverseKinematicsPlugin)
-            .add_systems(
-                OnEnter(GameState::Above),
-                (spawn_killing_arm, setup_inverse_kinematics),
-            )
+            .add_systems(OnEnter(GameState::Above), spawn_killing_arm)
             .add_systems(
                 Update,
                 (

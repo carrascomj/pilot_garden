@@ -23,7 +23,6 @@ impl Plugin for DiggingPlugin {
                 Update,
                 (animate_interaction, remove_when_life_depleted).run_if(in_state(GameState::Above)),
             )
-            .add_observer(remove_the_platform_gnome)
             // tools animation might be playing while in Below already
             .add_systems(
                 Update,
@@ -103,6 +102,7 @@ fn add_dirt_colliders(
             commands
                 .entity(ent)
                 .insert(FakeGround)
+                .observe(was_removed_by_player)
                 .with_child((
                     Mesh3d(meshes.add(Cuboid::new(1., 4., 1.))),
                     Transform::from_translation(Vec3::new(-0.8, -0.9, 0.5)),
@@ -117,14 +117,21 @@ fn add_dirt_colliders(
     }
 }
 
-fn remove_the_platform_gnome(
-    _trigger: Trigger<OnRemove, FakeGround>,
+/// Remove the platform mover when [`FakeGround`] is removed ONLY IF
+/// [`FakeGround`] was removed by the player and not by the
+/// despawning and spwaning of crops when the player enters
+/// the menu.
+fn was_removed_by_player(
+    trigger: Trigger<OnAdd, RemoveTimer>,
     mut commands: Commands,
+    fake_ground: Query<&FakeGround>,
     platform_mover: Single<Entity, With<PlatformMover>>,
 ) {
-    commands
-        .entity(platform_mover.entity())
-        .insert(RemoveTimer::new());
+    if fake_ground.contains(trigger.target()) {
+        commands
+            .entity(platform_mover.entity())
+            .insert(RemoveTimer::new());
+    }
 }
 
 /// Calculate and attach colliders to [`Diggable`] entities.
