@@ -5,7 +5,6 @@
 use crate::{
     config::{GameState, INTERACTION_DISTANCE},
     digging::{Collectible, Diggable, Life, Minable, OnHand, RemoveTimer, SeedsPlaced},
-    gnomes::GnomeMachine,
     player_movement::{Collider, Player},
     surveillance::ButtonActivated,
     world_timer::TimerComp,
@@ -14,7 +13,7 @@ use bevy::{
     ecs::{archetype::ArchetypeId, query::QueryEntityError},
     prelude::*,
 };
-use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::FilterQueryInspectorPlugin};
+// use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::FilterQueryInspectorPlugin};
 
 pub struct FirstPersonPickerPlugin;
 
@@ -23,20 +22,21 @@ impl Plugin for FirstPersonPickerPlugin {
         app.add_systems(OnExit(GameState::Menu), spawn_cross)
             .add_systems(OnEnter(GameState::Menu), despawn_cross)
             .init_resource::<Inventory>()
+            .add_event::<DropTool>()
             .add_systems(
                 Update,
                 cast_player_ray.run_if(not(in_state(GameState::Menu))),
             )
             .add_systems(
                 Update,
-                (manage_inventory, eat_food).run_if(in_state(GameState::Above)),
+                (manage_inventory, eat_food, leave_tools_proper).run_if(in_state(GameState::Above)),
             );
         if cfg!(debug_assertions) {
             app.init_gizmo_group::<MyRoundGizmos>()
-                .add_plugins(EguiPlugin {
-                    enable_multipass_for_primary_context: true,
-                })
-                .add_plugins(FilterQueryInspectorPlugin::<With<GnomeMachine>>::default())
+                // .add_plugins(EguiPlugin {
+                //     enable_multipass_for_primary_context: true,
+                // })
+                // .add_plugins(FilterQueryInspectorPlugin::<With<GnomeMachine>>::default())
                 .add_systems(Update, (activate_gizmos, draw_collider_gizmos));
         }
     }
@@ -126,10 +126,11 @@ fn cast_player_ray(
     mut commands: Commands,
     mut seeds_event: EventWriter<SeedsPlaced>,
     mut button_event: EventWriter<ButtonActivated>,
+    mut drop_tool: EventWriter<DropTool>,
     mut inventory: ResMut<Inventory>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     mut ray_cast: MeshRayCast,
-    player_q: Single<&GlobalTransform, With<Player>>,
+    player_query: Single<(&GlobalTransform, Entity, Option<&Children>), With<Player>>,
     mut cross_q: Single<
         (
             &mut BorderColor,
@@ -150,7 +151,6 @@ fn cast_player_ray(
     )>,
     blockers: Query<&RayBlocker>,
     children: Query<&ChildOf>,
-    player_query: Query<Entity, With<Player>>,
     mut interaction_cooldown: Local<CooldownTimer>,
 ) {
     if !interaction_cooldown.0.finished() {
@@ -158,8 +158,8 @@ fn cast_player_ray(
         return;
     }
     // Cast an automatically moving ray and bounce it off of surfaces
-    let ray_pos = player_q.translation();
-    let ray_dir = player_q.forward();
+    let ray_pos = player_query.0.translation();
+    let ray_dir = player_query.0.forward();
     let ray = Ray3d::new(ray_pos, ray_dir);
     let this_filter = |e| {
         filter_recursive(
@@ -204,12 +204,11 @@ fn cast_player_ray(
                 if let Ok((ent, mut transform, collectible, mut on_hand, _)) =
                     collectables.get_mut(*trigger)
                 {
-                    let Ok(player_ent) = player_query.single() else {
-                        return;
-                    };
+                    let (_, player_ent, on_hand_children) = player_query.into_inner();
+                    // despawn currently held tool if any
+                    let usage = inventory.get_usage();
                     *inventory = match collectible {
-                        // FIXME: make shovel 3
-                        Collectible::Shovel => Inventory::Shovel(100),
+                        Collectible::Shovel(count) => Inventory::Shovel(*count),
                         Collectible::MiningPick => Inventory::MiningPick,
                         Collectible::Food => Inventory::Food(1),
                         Collectible::Seeds => Inventory::Seeds(1),
@@ -218,8 +217,18 @@ fn cast_player_ray(
                             return;
                         }
                     };
-                    // despawn currently held tool if any
-                    commands.entity(player_ent).despawn_related::<Children>();
+                    if let Some(to_drop) = on_hand_children {
+                        for on_hand_child in to_drop {
+                            commands
+                                .entity(player_ent)
+                                .remove_children(&[*on_hand_child]);
+                            drop_tool.write(DropTool {
+                                tool: *on_hand_child,
+                                drop_position: ray_pos,
+                                usage,
+                            });
+                        }
+                    }
                     let (rest_pos, rest_rot) = collectible.on_hand_poses();
                     // the children its the mesh, the translation is better
                     // applied to the parent object in the gltf since it has
@@ -241,7 +250,6 @@ fn cast_player_ray(
                     } else {
                         continue;
                     }
-                    // decrease life or despawn object
                     if diggables.contains(*trigger) && inventory.is_seeds() {
                         seeds_event.write(SeedsPlaced {
                             hit_position: hit.point,
@@ -249,6 +257,7 @@ fn cast_player_ray(
                         return;
                     }
 
+                    // decrease life or despawn object
                     if let Ok(mut mined_life) =
                         get_recursive_minable(*trigger, &mut minables, children)
                     {
@@ -281,6 +290,10 @@ fn cast_player_ray(
 }
 
 /// Only one item can be held at a time.
+///
+/// This is not perfect since we have to pass state
+/// from [`Collectible`] when picked and back to it when dropped,
+/// probably it would better to not have any Inventory.
 #[derive(Resource, PartialEq)]
 enum Inventory {
     Shovel(usize),
@@ -312,6 +325,12 @@ impl Inventory {
         match self {
             &Inventory::Seeds(_) => true,
             _ => false,
+        }
+    }
+    fn get_usage(&self) -> usize {
+        match self {
+            &Inventory::Shovel(count) => count,
+            _ => 1,
         }
     }
 }
@@ -354,7 +373,7 @@ fn manage_inventory(
 ) {
     if inventory.is_changed() {
         let check_for = match inventory.as_mut() {
-            Inventory::Shovel(counter) if (*counter <= 0) => Collectible::Shovel,
+            Inventory::Shovel(counter) if (*counter <= 0) => Collectible::Shovel(0), // counter is irrelevant since it is ignore in `PartialEq<Collectible>`
             Inventory::Food(counter) if (*counter <= 0) => Collectible::Food,
             Inventory::Seeds(counter) if (*counter <= 0) => Collectible::Seeds,
             _ => return,
@@ -381,6 +400,36 @@ fn eat_food(mut inventory: ResMut<Inventory>, mouse_button_input: Res<ButtonInpu
                 }
             }
             _ => (),
+        }
+    }
+}
+
+#[derive(Event)]
+struct DropTool {
+    tool: Entity,
+    drop_position: Vec3,
+    usage: usize,
+}
+
+fn leave_tools_proper(
+    mut commands: Commands,
+    mut ev: EventReader<DropTool>,
+    mut tool_query: Query<(&mut Transform, &ChildOf, &mut OnHand, &mut Collectible)>,
+) {
+    for DropTool {
+        tool,
+        drop_position,
+        usage,
+    } in ev.read()
+    {
+        if let Ok((mut trans, parent, mut on_hand, mut collectible)) = tool_query.get_mut(*tool) {
+            commands.entity(parent.0).remove_children(&[*tool]);
+            trans.translation = drop_position.with_y(1.);
+            on_hand.active = false;
+            match collectible.as_ref() {
+                Collectible::Shovel(_) => *collectible = Collectible::Shovel(*usage),
+                _ => (),
+            };
         }
     }
 }

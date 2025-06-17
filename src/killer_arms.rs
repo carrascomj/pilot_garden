@@ -58,8 +58,8 @@ fn spawn_killing_arm(
         .as_ref()
         .expect("This is always loaded before");
     for killer_position in [
-        Vec3::new(8., 6., -22.),
-        Vec3::new(8., 6., 22.),
+        Vec3::new(12., 6., -22.),
+        Vec3::new(-4., 8., 26.),
         Vec3::new(39., 5.5, 0.),
         Vec3::new(-19., 5.5, 0.),
     ] {

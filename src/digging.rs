@@ -2,7 +2,7 @@
 
 use std::f32::consts::PI;
 
-use crate::config::{GameState, REST_ROT, SEEDS_ROT};
+use crate::config::{GameState, REST_ROT, SEEDS_ROT, SHOVEL_DURABILITY};
 use crate::gnomes::{GnomeMachine, PlatformMover};
 use crate::player_movement::Collider;
 use crate::point_raycast::RayBlocker;
@@ -50,15 +50,30 @@ pub enum Life {
     JustSpawned,
 }
 /// Can be taken (shovel, mining pick, food)
-#[derive(Component, PartialEq)]
+#[derive(Component)]
 pub enum Collectible {
-    Shovel,
+    Shovel(usize),
     MiningPick,
     Seeds,
     Food,
     /// Not a collectible per se, but it can also be interacted with
     /// based on the logic of the rest (always, regardles of tool at hand)
     Button,
+}
+
+/// Implement our own so that [`Collectible::Shovel`] is eq to shovel irrespective
+/// of its count.
+impl PartialEq<Collectible> for Collectible {
+    fn eq(&self, other: &Collectible) -> bool {
+        match (self, other) {
+            (Collectible::Shovel(_), Collectible::Shovel(_)) => true,
+            (Collectible::MiningPick, Collectible::MiningPick) => true,
+            (Collectible::Seeds, Collectible::Seeds) => true,
+            (Collectible::Food, Collectible::Food) => true,
+            (Collectible::Button, Collectible::Button) => true,
+            _ => false,
+        }
+    }
 }
 
 impl Collectible {
@@ -181,7 +196,7 @@ fn add_collectibles(
             "Shovel" => {
                 commands
                     .entity(entity)
-                    .insert(Collectible::Shovel)
+                    .insert(Collectible::Shovel(SHOVEL_DURABILITY))
                     .insert(OnHand::new());
             }
             "MiningPick" => {
@@ -228,7 +243,7 @@ fn animate_interaction(mut bones: Query<(&mut Transform, &OnHand, &TimerComp, &C
         let u = timer.0.fraction();
 
         let (translation, rotation) = match collectible {
-            Collectible::Shovel => {
+            Collectible::Shovel(_) => {
                 let a = if u < 0.5 { u * 2.0 } else { (1.0 - u) * 2.0 };
                 let t = rest_pos
                     + Vec3::new(
