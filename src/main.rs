@@ -102,6 +102,8 @@ fn setup_colliders_above(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>
         // fences
         (0.5, 10.0, 18.2, -4.0, 2.0, 1.0),
         (7.5, 0.5, 26.0, 1.35, 2.0, 1.0),
+        // table
+        (2., 2., 9.9080, 8.2921, 1., 1.254),
         // floor (subdivided to accomodate dirt colliders, rest in shared colliders)
         (26.0, 22.0, 5.0, 0.0, 1.0, -1.2),
         // fake bush safe zone

@@ -27,6 +27,8 @@ impl Plugin for DodgyPlugin {
                 .run_if(in_state(GameState::Above)),
         )
         .init_resource::<GaussianNoise>()
+        .add_systems(Startup, setup_banana_on_plate)
+        .add_systems(OnExit(GameState::Menu), spawn_banana_on_plate)
         .add_observer(spawn_banana_on_bananite_depletion);
 
         if cfg!(debug_assertions) {
@@ -122,13 +124,38 @@ pub struct ArchAnimation {
     pub peak_y: f32,
 }
 
+/// Setup in `spawn_banana_on_plate` initially.
+#[derive(Resource)]
+pub struct BananaScene {
+    pub handle: Handle<Scene>,
+}
+#[derive(Component)]
+struct BananaOnPlate;
+
+fn setup_banana_on_plate(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let banana_handle = asset_server.load(GltfAssetLabel::Scene(0).from_asset("banana.gltf"));
+    commands.insert_resource(BananaScene {
+        handle: banana_handle.clone(),
+    });
+}
+
+fn spawn_banana_on_plate(mut commands: Commands, banana_scene: Res<BananaScene>) {
+    commands.spawn((
+        BananaOnPlate,
+        Transform::from_xyz(10.1080, 2.254, 8.2921).with_rotation(Quat::from_scaled_axis(
+            Vec3::new(0., (225f32).to_radians(), 0.2),
+        )),
+        SceneRoot(banana_scene.handle.clone()),
+    ));
+}
+
 /// Spawn some bananas once a bananite is depleted.
 ///
 /// (A bananite is a banana ore.)
 fn spawn_banana_on_bananite_depletion(
     trigger: Trigger<OnRemove, Bananite>,
-    asset_server: Res<AssetServer>,
     mut gaussian: ResMut<GaussianNoise>,
+    banana_scene: Res<BananaScene>,
     mut commands: Commands,
     bananite_query: Query<&Transform>,
 ) {
@@ -150,9 +177,7 @@ fn spawn_banana_on_bananite_depletion(
                         last_pos,
                         peak_y,
                     },
-                    SceneRoot(
-                        asset_server.load(GltfAssetLabel::Scene(0).from_asset("banana.gltf")),
-                    ),
+                    SceneRoot(banana_scene.handle.clone()),
                 )
             })
             .collect::<smallvec::SmallVec<[_; MAX_BANANAS]>>();
