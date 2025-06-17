@@ -22,7 +22,7 @@ impl Plugin for DodgyPlugin {
                     animate_dodge,
                     animate_arch,
                     plant_bananite_on_seeds,
-                    spawn_rock_ore,
+                    // spawn_rock_ore,
                 )
                     .run_if(in_state(GameState::Above)),
             )
@@ -302,31 +302,31 @@ fn spawn_starting_rock_ore(mut commands: Commands, rock_scene: Res<RockScene>) {
     ));
 }
 
-fn spawn_rock_ore(
-    mut commands: Commands,
-    mut gaussian: ResMut<GaussianNoise>,
-    rock_scene: Res<RockScene>,
-    rock_spawner: Single<&TimerComp, With<RockSpawner>>,
-) {
-    if rock_spawner.0.just_finished() {
-        let x = 8. + gaussian.sample() * 4.0;
-        let z = 0. + gaussian.sample() * 4.0;
-        let scale = 1. + gaussian.sample();
-        let init_trans = Vec3::new(x, 0.2 - 5.0, z);
-        let last_trans = Vec3::new(x, 0.2, z);
-        commands.spawn((
-            Dodgy {
-                init_pos: init_trans,
-                last_pos: last_trans,
-                go_back: false,
-                ignore_viewing: false,
-            },
-            Transform::from_translation(init_trans).with_scale(Vec3::splat(scale)),
-            StateScoped(GameState::Above),
-            Minable,
-            Life::Left(3),
-            Collider::from_translation(last_trans, Vec3::new(1.0, 4.0, 1.0)),
-            SceneRoot(rock_scene.handle.clone()),
-        ));
-    }
-}
+// fn spawn_rock_ore(
+//     mut commands: Commands,
+//     mut gaussian: ResMut<GaussianNoise>,
+//     rock_scene: Res<RockScene>,
+//     rock_spawner: Single<&TimerComp, With<RockSpawner>>,
+// ) {
+//     if rock_spawner.0.just_finished() {
+//         let x = 8. + gaussian.sample() * 4.0;
+//         let z = 0. + gaussian.sample() * 4.0;
+//         let scale = 1. + gaussian.sample() * 0.3;
+//         let init_trans = Vec3::new(x, 0.2 - 5.0, z);
+//         let last_trans = Vec3::new(x, 0.2, z);
+//         commands.spawn((
+//             Dodgy {
+//                 init_pos: init_trans,
+//                 last_pos: last_trans,
+//                 go_back: false,
+//                 ignore_viewing: false,
+//             },
+//             Transform::from_translation(init_trans).with_scale(Vec3::splat(scale)),
+//             StateScoped(GameState::Above),
+//             Minable,
+//             Life::Left(3),
+//             Collider::from_translation(last_trans, Vec3::new(1.0, 4.0, 1.0)),
+//             SceneRoot(rock_scene.handle.clone()),
+//         ));
+//     }
+// }
