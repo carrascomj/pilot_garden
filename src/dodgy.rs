@@ -15,21 +15,29 @@ pub struct DodgyPlugin;
 
 impl Plugin for DodgyPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            (animate_dodge, animate_arch, plant_bananite_on_seeds)
-                .run_if(in_state(GameState::Above)),
-        )
-        .add_systems(
-            PostUpdate,
-            activate_dodge
-                .after(VisibilitySystems::CheckVisibility)
-                .run_if(in_state(GameState::Above)),
-        )
-        .init_resource::<GaussianNoise>()
-        .add_systems(Startup, setup_banana_on_plate)
-        .add_systems(OnExit(GameState::Menu), spawn_banana_on_plate)
-        .add_observer(spawn_banana_on_bananite_depletion);
+        app.add_systems(Startup, (setup_rocks, setup_banana_on_plate))
+            .add_systems(
+                Update,
+                (
+                    animate_dodge,
+                    animate_arch,
+                    plant_bananite_on_seeds,
+                    spawn_rock_ore,
+                )
+                    .run_if(in_state(GameState::Above)),
+            )
+            .add_systems(
+                PostUpdate,
+                activate_dodge
+                    .after(VisibilitySystems::CheckVisibility)
+                    .run_if(in_state(GameState::Above)),
+            )
+            .init_resource::<GaussianNoise>()
+            .add_systems(
+                OnExit(GameState::Menu),
+                (spawn_banana_on_plate, spawn_starting_rock_ore),
+            )
+            .add_observer(spawn_banana_on_bananite_depletion);
 
         if cfg!(debug_assertions) {
             app.add_systems(Update, spawn_bananite);
@@ -259,6 +267,66 @@ fn plant_bananite_on_seeds(
             SceneRoot(
                 asset_server.load(GltfAssetLabel::Scene(0).from_asset("bananite.gltf#bananite")),
             ),
+        ));
+    }
+}
+
+/// Marker for the timer that spawns rocks.
+#[derive(Component)]
+struct RockSpawner;
+/// Handle to the rock scene, initialized on [`setup_rocks`].
+#[derive(Resource)]
+struct RockScene {
+    handle: Handle<Scene>,
+}
+
+fn setup_rocks(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let rock_handle = asset_server.load(GltfAssetLabel::Scene(0).from_asset("rockite.glb"));
+    commands.insert_resource(RockScene {
+        handle: rock_handle.clone(),
+    });
+    commands.spawn((
+        RockSpawner,
+        TimerComp(Timer::from_seconds(20., TimerMode::Repeating)),
+    ));
+}
+
+fn spawn_starting_rock_ore(mut commands: Commands, rock_scene: Res<RockScene>) {
+    const INIT_TRANS: Vec3 = Vec3::new(4., 0.2, -7.5);
+    commands.spawn((
+        Transform::from_translation(INIT_TRANS),
+        Minable,
+        Life::Left(3),
+        Collider::from_translation(INIT_TRANS, Vec3::new(1.0, 4.0, 1.0)),
+        SceneRoot(rock_scene.handle.clone()),
+    ));
+}
+
+fn spawn_rock_ore(
+    mut commands: Commands,
+    mut gaussian: ResMut<GaussianNoise>,
+    rock_scene: Res<RockScene>,
+    rock_spawner: Single<&TimerComp, With<RockSpawner>>,
+) {
+    if rock_spawner.0.just_finished() {
+        let x = 8. + gaussian.sample() * 4.0;
+        let z = 0. + gaussian.sample() * 4.0;
+        let scale = 1. + gaussian.sample();
+        let init_trans = Vec3::new(x, 0.2 - 5.0, z);
+        let last_trans = Vec3::new(x, 0.2, z);
+        commands.spawn((
+            Dodgy {
+                init_pos: init_trans,
+                last_pos: last_trans,
+                go_back: false,
+                ignore_viewing: false,
+            },
+            Transform::from_translation(init_trans).with_scale(Vec3::splat(scale)),
+            StateScoped(GameState::Above),
+            Minable,
+            Life::Left(3),
+            Collider::from_translation(last_trans, Vec3::new(1.0, 4.0, 1.0)),
+            SceneRoot(rock_scene.handle.clone()),
         ));
     }
 }
