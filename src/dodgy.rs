@@ -134,15 +134,14 @@ fn spawn_banana_on_bananite_depletion(
 ) {
     let entity = trigger.target();
     if let Ok(trans) = bananite_query.get(entity) {
-        let mut init_pos = trans.translation;
-        init_pos.y = 0.3;
+        let init_pos = trans.translation;
         let peak_y = 5.0;
         const MAX_BANANAS: usize = 4;
         let bananas = (0..gaussian.rng.u8(3..(MAX_BANANAS as u8)))
             .map(|_| {
-                let x_offset = gaussian.sample() * 2.0;
-                let z_offset = gaussian.sample() * 2.0;
-                let last_pos = (trans.translation + Vec3::new(x_offset, init_pos.y, z_offset))
+                let offset = Vec3::new(gaussian.sample() * 2.0, 0., gaussian.sample() * 2.0);
+                let last_pos = (trans.translation + offset)
+                    .with_y(0.)
                     .clamp(MIN_CROP_BOUNDS, MAX_CROP_BOUNDS);
                 (
                     Transform::from_translation(init_pos),
@@ -173,7 +172,7 @@ fn animate_arch(mut dodgers: Populated<(&mut Transform, &ArchAnimation, &TimerCo
             let mut next_translation = u * arch.last_pos + (1. - u) * arch.init_pos;
             next_translation.y = arch_bezier(arch.init_pos.y, arch.last_pos.y, arch.peak_y, u);
             trans.translation = next_translation;
-        } else if timer.0.just_finished() {
+        } else {
             trans.translation = arch.last_pos;
         }
     }
