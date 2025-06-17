@@ -7,7 +7,9 @@ use bevy::prelude::*;
 use crate::{
     config::GameState,
     digging::{Life, Minable},
+    killer_arms::find_entity,
     player_movement::{Collider, Player},
+    point_raycast::RayBlocker,
     surveillance::TurnTheLights,
 };
 
@@ -37,6 +39,10 @@ impl Plugin for GnomePlugin {
         app.add_systems(Startup, spawn_gnomes_above)
             // below gnome are statescoped to Below
             .add_systems(OnEnter(GameState::Below), spawn_gnomes_below)
+            .add_systems(
+                Update,
+                setup_platform_moving.run_if(in_state(GameState::Menu)),
+            )
             .add_systems(
                 Update,
                 (setup_animations, move_gnome)
@@ -332,6 +338,43 @@ fn move_gnome(
                 }
             }
             _ => (),
+        }
+    }
+}
+
+/// Setup up a rayblocking mesh that moves with the gnome
+/// die animation (targetting the bone `platform_mover`).
+///
+/// As usual for GLTF, walk recursively from the [`SceneRoot`]
+/// until we find the bone.
+fn setup_platform_moving(
+    mut commands: Commands,
+    gnome_mover: Query<&Children, With<PlatformMover>>,
+    parents: Query<&Children>,
+    names: Query<(Entity, &Name)>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut done: Local<bool>,
+) {
+    if *done {
+        return;
+    }
+    for children in &gnome_mover {
+        for child in children {
+            if let Ok(down_children) = parents.get(*child) {
+                for down_child in down_children {
+                    if let Ok(ik_bone) = find_entity(*down_child, "platform_mover", parents, names)
+                    {
+                        if let Ok((entity, _)) = names.get(ik_bone) {
+                            *done = true;
+                            commands.entity(entity).with_child((
+                                Mesh3d(meshes.add(Cuboid::new(2.2, 6., 3.))),
+                                Transform::from_translation(Vec3::new(0., -3., 1.2)),
+                                RayBlocker,
+                            ));
+                        }
+                    }
+                }
+            }
         }
     }
 }

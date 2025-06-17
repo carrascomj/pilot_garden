@@ -26,7 +26,7 @@ use game_over::GameOver;
 use gnomes::GnomePlugin;
 use killer_arms::{KillerArmPlugin, KillerHead, KillerPoint, KillerTimer};
 use player_movement::{Collider, Player, PlayerPlugin};
-use point_raycast::{FirstPersonPickerPlugin, RayBlocker};
+use point_raycast::FirstPersonPickerPlugin;
 use surveillance::SurveillancePlugin;
 use world_timer::{DayNightPlugin, ShowOnAlarmTime, TimerComp};
 
@@ -419,8 +419,6 @@ struct MainBone {
 fn find_main_bone(
     mut commands: Commands,
     new_names: Populated<(Entity, &Name, &Transform), Added<Name>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut first_platform_mover: Local<bool>,
 ) {
     for (entity, name, transform) in new_names.iter() {
         if name.as_str().starts_with("main") {
@@ -460,14 +458,6 @@ fn find_main_bone(
                 killer_timer,
                 StateScoped(GameState::Above),
             ));
-        } else if name.as_str() == "platform_mover" && !*first_platform_mover {
-            // only the first ever spawned needs the platform mover
-            commands.entity(entity).with_child((
-                Mesh3d(meshes.add(Cuboid::new(2.2, 4., 2.))),
-                Transform::from_translation(Vec3::new(0., -2., 0.8)),
-                RayBlocker,
-            ));
-            *first_platform_mover = true;
         }
     }
 }

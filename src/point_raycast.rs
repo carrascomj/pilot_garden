@@ -35,7 +35,7 @@ impl Plugin for FirstPersonPickerPlugin {
                 // .add_plugins(EguiPlugin {
                 //     enable_multipass_for_primary_context: true,
                 // })
-                // .add_plugins(FilterQueryInspectorPlugin::<With<Stone>>::default())
+                // .add_plugins(FilterQueryInspectorPlugin::<With<RayBlocker>>::default())
                 .add_systems(Update, (activate_gizmos, draw_collider_gizmos));
         }
     }

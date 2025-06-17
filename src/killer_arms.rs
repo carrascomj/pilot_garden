@@ -113,7 +113,7 @@ fn setup_inverse_kinematics(
     }
 }
 
-fn find_entity<F: QueryFilter, F2: QueryFilter>(
+pub fn find_entity<F: QueryFilter, F2: QueryFilter>(
     root: Entity,
     look_for_name: &str,
     parents: Query<&Children, F>,
