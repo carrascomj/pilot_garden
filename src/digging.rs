@@ -5,7 +5,6 @@ use std::f32::consts::PI;
 use crate::config::{GameState, REST_ROT, SEEDS_ROT, SHOVEL_DURABILITY};
 use crate::gnomes::{GnomeMachine, PlatformMover};
 use crate::player_movement::Collider;
-use crate::point_raycast::RayBlocker;
 use crate::world_timer::TimerComp;
 use bevy::prelude::*;
 use bevy::scene::SceneInstanceReady;
@@ -16,8 +15,7 @@ pub struct DiggingPlugin;
 
 impl Plugin for DiggingPlugin {
     fn build(&self, app: &mut App) {
-        app.add_observer(add_dirt_colliders)
-            .add_observer(add_collectibles)
+        app.add_observer(add_collectibles)
             .add_event::<SeedsPlaced>()
             .add_systems(
                 Update,
@@ -95,48 +93,18 @@ impl Collectible {
     }
 }
 
+/// Marker for entities that get a 3D unit size collider.
 #[derive(Component)]
 pub struct OneSizeCollider;
+/// Marker for the hidden diggable ground that can be removed to win.
 #[derive(Component)]
-struct FakeGround;
-
-/// Attaches [`Diggable`] markers to gltf objects named as `crop_ground`.
-fn add_dirt_colliders(
-    trigger: Trigger<SceneInstanceReady>,
-    mut commands: Commands,
-    add_names: Query<(Entity, &Name), (Added<Name>, Without<Diggable>)>,
-    mut meshes: ResMut<Assets<Mesh>>,
-) {
-    let _e = trigger.target();
-    for (ent, name) in add_names.iter() {
-        if name.as_str().starts_with("crop_ground") {
-            commands.entity(ent).insert((Diggable {}, OneSizeCollider));
-        }
-        if name.as_str() == "crop_ground_special" {
-            // invisible meshes to protect the SPECIAL diggable tile below de gnome
-            commands
-                .entity(ent)
-                .insert(FakeGround)
-                .observe(was_removed_by_player)
-                .with_child((
-                    Mesh3d(meshes.add(Cuboid::new(1., 4., 1.))),
-                    Transform::from_translation(Vec3::new(-0.8, -0.9, 0.5)),
-                    RayBlocker,
-                ))
-                .with_child((
-                    Mesh3d(meshes.add(Cuboid::new(1., 4., 1.))),
-                    Transform::from_translation(Vec3::new(0.8, -0.9, 0.5)),
-                    RayBlocker,
-                ));
-        }
-    }
-}
+pub struct FakeGround;
 
 /// Remove the platform mover when [`FakeGround`] is removed ONLY IF
 /// [`FakeGround`] was removed by the player and not by the
 /// despawning and spwaning of crops when the player enters
 /// the menu.
-fn was_removed_by_player(
+pub fn was_removed_by_player(
     trigger: Trigger<OnAdd, RemoveTimer>,
     mut commands: Commands,
     fake_ground: Query<&FakeGround>,

@@ -1,3 +1,5 @@
+//! Entry point of the game, call the other plugins, load some main scenes from
+//! GLTF and tag specific GLTF entities based with components based on their names.
 use bevy::{
     pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
@@ -32,6 +34,11 @@ use world_timer::{DayNightPlugin, ShowOnAlarmTime, TimerComp};
 
 use config::{BUMP_DISTANCE, GROUND_Y, GameState};
 
+use crate::{
+    digging::{Diggable, FakeGround, was_removed_by_player},
+    point_raycast::RayBlocker,
+};
+
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins.set(WindowPlugin {
@@ -64,7 +71,7 @@ fn main() {
         .add_systems(
             Update,
             (
-                find_main_bone,
+                tag_gltf_on_add,
                 trigger_main_bone_animation,
                 animate_main_bone,
             )
@@ -418,48 +425,82 @@ struct MainBone {
     active: bool,
 }
 
-fn find_main_bone(
+/// Tag specific GLTF entities based with components based on their names
+/// after they load.
+fn tag_gltf_on_add(
     mut commands: Commands,
     new_names: Populated<(Entity, &Name, &Transform), Added<Name>>,
+    mut meshes: ResMut<Assets<Mesh>>,
 ) {
     for (entity, name, transform) in new_names.iter() {
+        // cases that happen at most once on a scene are exactly matched
+        match name.as_str() {
+            "point_bone" => {
+                commands.entity(entity).insert(KillerPoint);
+            }
+            "ik_target" => {
+                // this is the target bone of an IK
+                let dur = Duration::from_secs_f32(1.);
+                let mut laser_timer = TimerComp(Timer::new(dur, TimerMode::Once));
+                laser_timer.0.pause();
+                let dur = Duration::from_secs_f32(5.);
+                let mut killer_timer = KillerTimer {
+                    timer: Timer::new(dur, TimerMode::Once),
+                    can_kill: false,
+                };
+                killer_timer.timer.pause();
+                commands.entity(entity).insert((
+                    KillerHead,
+                    laser_timer,
+                    killer_timer,
+                    StateScoped(GameState::Above),
+                ));
+            }
+            "fakebush" => {
+                // fake bush that can be removed with the mining pick
+                const BUSH_TRANS: Vec3 = Vec3::new(18., 2., 10.);
+                const SIZE: Vec3 = Vec3::new(1.0, 2.0, 1.0);
+                commands.entity(entity).insert((
+                    Minable {},
+                    Life::JustSpawned,
+                    Collider::from_translation(BUSH_TRANS + Vec3::Y * 0.5, SIZE),
+                ));
+            }
+            "crop_ground_special" => {
+                // invisible meshes to protect the SPECIAL diggable tile below de gnome
+                commands
+                    .entity(entity)
+                    .insert(FakeGround)
+                    .observe(was_removed_by_player)
+                    .with_child((
+                        Mesh3d(meshes.add(Cuboid::new(1., 4., 1.))),
+                        Transform::from_translation(Vec3::new(-0.8, -0.9, 0.5)),
+                        RayBlocker,
+                    ))
+                    .with_child((
+                        Mesh3d(meshes.add(Cuboid::new(1., 4., 1.))),
+                        Transform::from_translation(Vec3::new(0.8, -0.9, 0.5)),
+                        RayBlocker,
+                    ));
+            }
+            _ => {}
+        };
+        // multiple prefixed added entities at the same time
+        // will get these components added
         if name.as_str().starts_with("main") {
+            // little wiggle on distance with player
             commands.entity(entity).insert(MainBone {
                 rest_rot: transform.rotation,
                 active: true,
             });
         } else if name.as_str().starts_with("one_sized") {
-            // fake bushes can be removed with the mining pick
             commands.entity(entity).insert(OneSizeCollider);
-        } else if name.as_str() == "fakebush" {
-            // fake bushes can be removed with the mining pick
-            const BUSH_TRANS: Vec3 = Vec3::new(18., 2., 10.);
-            const SIZE: Vec3 = Vec3::new(1.0, 2.0, 1.0);
-            commands.entity(entity).insert((
-                Minable {},
-                Life::JustSpawned,
-                Collider::from_translation(BUSH_TRANS + Vec3::Y * 0.5, SIZE),
-            ));
-        } else if name.as_str() == "point_bone" {
-            // this is the object bone of an IK
-            commands.entity(entity).insert(KillerPoint);
-        } else if name.as_str() == "ik_target" {
-            // this is the target bone of an IK
-            let dur = Duration::from_secs_f32(1.);
-            let mut laser_timer = TimerComp(Timer::new(dur, TimerMode::Once));
-            laser_timer.0.pause();
-            let dur = Duration::from_secs_f32(5.);
-            let mut killer_timer = KillerTimer {
-                timer: Timer::new(dur, TimerMode::Once),
-                can_kill: false,
-            };
-            killer_timer.timer.pause();
-            commands.entity(entity).insert((
-                KillerHead,
-                laser_timer,
-                killer_timer,
-                StateScoped(GameState::Above),
-            ));
+        } else if name.as_str().starts_with("crop_ground") {
+            // this if-else is outside of the match to be able
+            // to add this also to "crop_ground_special"
+            commands
+                .entity(entity)
+                .insert((Diggable {}, OneSizeCollider));
         }
     }
 }
