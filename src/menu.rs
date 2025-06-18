@@ -53,14 +53,12 @@ fn spawn_game_menu(
     asset_server: Res<AssetServer>,
     mut ui_materials: ResMut<Assets<HibernationMaterial>>,
     mut window: Single<&mut Window>,
-    collectibles: Query<(Entity, &OnHand), With<Collectible>>,
+    collectibles: Query<Entity, (With<Collectible>, With<OnHand>)>,
 ) {
     // first, remove all onhand collectibles. Otherwise, the
     // player could just die with a full shovel and beat the game
-    for (ent, on_hand) in &collectibles {
-        if on_hand.active {
-            commands.entity(ent).despawn()
-        }
+    for ent in &collectibles {
+        commands.entity(ent).despawn()
     }
     commands.spawn((
         Node {
