@@ -2,7 +2,7 @@
 
 use std::f32::consts::PI;
 
-use crate::config::{GameState, REST_ROT, SEEDS_ROT, SHOVEL_DURABILITY};
+use crate::config::{GameState, REST_ROT, SEEDS_ROT, SHOVEL_DURABILITY, TOOL_ANIM_TIME};
 use crate::emoji_particles::{EmojiBurst, SecretRevealed};
 use crate::gnomes::{GnomeMachine, PlatformMover};
 use crate::player_movement::Collider;
@@ -48,6 +48,7 @@ pub enum Life {
     Left(u8),
     JustSpawned,
 }
+
 /// Can be taken (shovel, mining pick, food)
 #[derive(Component)]
 pub enum Collectible {
@@ -139,7 +140,7 @@ pub struct SeedsPlaced {
 }
 
 #[derive(Component)]
-#[require(TimerComp::from_elapsed(0.35))]
+#[require(TimerComp::from_elapsed(TOOL_ANIM_TIME))]
 pub struct OnHand {
     pub active: bool,
 }
@@ -273,14 +274,14 @@ pub struct RemoveTimer {
 impl RemoveTimer {
     pub fn new() -> Self {
         Self {
-            timer: Timer::from_seconds(0.8, TimerMode::Once),
-            emoji_strength: 1.,
+            timer: Timer::from_seconds(0.65 + TOOL_ANIM_TIME, TimerMode::Once),
+            emoji_strength: 0.65 + TOOL_ANIM_TIME,
         }
     }
     pub fn with_emoji(strength: f32) -> Self {
         {
             Self {
-                timer: Timer::from_seconds(0.8, TimerMode::Once),
+                timer: Timer::from_seconds(0.65 + TOOL_ANIM_TIME, TimerMode::Once),
                 emoji_strength: strength,
             }
         }
@@ -334,8 +335,12 @@ fn remove_animation(
         } else {
             rm_timer.timer.tick(time.delta());
             let u = rm_timer.timer.fraction();
-            trans.scale = (1. - u) * Vec3::ONE + u * Vec3::ZERO;
-            trans.rotation *= Quat::from_rotation_y(0.2);
+            // wait for tool animation to finish
+            if u >= TOOL_ANIM_TIME {
+                let u = (u - TOOL_ANIM_TIME) / (1. - TOOL_ANIM_TIME);
+                trans.scale = (1. - u) * Vec3::ONE + u * Vec3::ZERO;
+                trans.rotation *= Quat::from_rotation_y(0.2);
+            }
         }
     }
 }
