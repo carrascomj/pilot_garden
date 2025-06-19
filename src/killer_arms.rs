@@ -7,6 +7,7 @@ use crate::{
     config::GameState,
     dodgy::Dodgy,
     player_movement::Player,
+    point_raycast::UIDot,
     world_timer::{ShowOnAlarmTime, TimerComp},
 };
 
@@ -23,9 +24,11 @@ impl Plugin for KillerArmPlugin {
                     point_at_player,
                     activate_lasers,
                     draw_lasers,
+                    show_dots_lasers,
                 )
                     .run_if(in_state(GameState::Above)),
-            );
+            )
+            .init_resource::<ShowDots>();
     }
 }
 
@@ -199,10 +202,18 @@ fn activate_lasers(
     }
 }
 
+#[derive(Default, Resource)]
+struct ShowDots {
+    left: bool,
+    right: bool,
+    bottom: bool,
+}
+
 fn draw_lasers(
     mut gizmos: Gizmos,
     mut ray_cast: MeshRayCast,
     mut next_state: ResMut<NextState<GameState>>,
+    mut show_dots: ResMut<ShowDots>,
     time: Res<Time>,
     mut killer_points: Query<
         (&GlobalTransform, &TimerComp, &mut KillerTimer),
@@ -210,6 +221,7 @@ fn draw_lasers(
     >,
     player: Single<(Entity, &Transform), (With<Player>, Without<KillerPoint>)>,
 ) {
+    let (mut right, mut left, mut bottom) = (false, false, false);
     for (trans, timer, mut killer_timer) in &mut killer_points {
         if timer.0.finished() {
             let ray_pos = trans.translation();
@@ -218,14 +230,14 @@ fn draw_lasers(
             let ray_dir = (end - start).normalize();
 
             let ray = Ray3d::new(ray_pos, Dir3::new(ray_dir).unwrap());
-
             if let Some((target_entity, hit)) = ray_cast
                 .cast_ray(ray, &MeshRayCastSettings::default().always_early_exit())
                 .first()
             {
+                let mult = if *target_entity == player.0 { 1.5 } else { 0. };
                 gizmos.line(
                     trans.translation(),
-                    hit.point - Vec3::Y,
+                    hit.point - mult * Vec3::Y,
                     // MAGENTA,
                     Color::BLACK.mix(&MAGENTA, killer_timer.timer.fraction()),
                 );
@@ -237,10 +249,66 @@ fn draw_lasers(
                         killer_timer.can_kill = false;
                     }
                 }
+                // check if UI should show direction of lasers
+                if *target_entity == player.0 {
+                    // direction *from* the player towards the killer head
+                    let from_player = start - end;
+                    let v2 = Vec2::new(from_player.x, from_player.z).normalize();
+
+                    // choose the dominant axis
+                    if v2.x.abs() >= v2.y.abs() {
+                        if v2.x > 0.0 {
+                            right = true;
+                        } else {
+                            left = true;
+                        }
+                    } else if v2.y < 0.0 {
+                        bottom = true;
+                    }
+                }
             }
         }
         if !killer_timer.timer.finished() {
             killer_timer.timer.tick(time.delta());
+        }
+    }
+    if right != show_dots.right {
+        show_dots.right = right;
+    }
+    if left != show_dots.left {
+        show_dots.left = left;
+    }
+    if bottom != show_dots.bottom {
+        show_dots.bottom = bottom;
+    }
+}
+
+fn show_dots_lasers(show_dots: Res<ShowDots>, mut ui_dots: Query<(&mut Visibility, &UIDot)>) {
+    if show_dots.is_changed() {
+        for (mut vis, dot) in &mut ui_dots {
+            match dot {
+                UIDot::Left => {
+                    *vis = if show_dots.left {
+                        Visibility::Visible
+                    } else {
+                        Visibility::Hidden
+                    };
+                }
+                UIDot::Right => {
+                    *vis = if show_dots.right {
+                        Visibility::Visible
+                    } else {
+                        Visibility::Hidden
+                    };
+                }
+                UIDot::Bottom => {
+                    *vis = if show_dots.bottom {
+                        Visibility::Visible
+                    } else {
+                        Visibility::Hidden
+                    };
+                }
+            }
         }
     }
 }

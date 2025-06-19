@@ -116,7 +116,7 @@ struct CooldownTimer(Timer);
 
 impl Default for CooldownTimer {
     fn default() -> Self {
-        Self(Timer::from_seconds(0.8, TimerMode::Once))
+        Self(Timer::from_seconds(1., TimerMode::Once))
     }
 }
 
@@ -338,6 +338,14 @@ impl Inventory {
 #[derive(Component)]
 struct Cross;
 
+/// To show if lasers are pointing at the player.
+#[derive(Component)]
+pub enum UIDot {
+    Left,
+    Right,
+    Bottom,
+}
+
 fn spawn_cross(mut commands: Commands) {
     commands.spawn((
         Node {
@@ -358,6 +366,50 @@ fn spawn_cross(mut commands: Commands) {
             color: Color::srgba(0., 0., 0., 0.2),
         },
         BackgroundColor(Color::srgba(0., 0., 0., 0.2)),
+        children![
+            (
+                Node {
+                    display: Display::Block,
+                    position_type: PositionType::Absolute,
+                    left: Val::Vw(-3.),
+                    height: Val::Vh(1.),
+                    width: Val::Vh(1.),
+                    ..default()
+                },
+                UIDot::Left,
+                BorderRadius::MAX,
+                BackgroundColor(Color::srgba(1., 0.3, 0.9, 0.8)),
+                Visibility::Hidden,
+            ),
+            (
+                Node {
+                    display: Display::Block,
+                    position_type: PositionType::Absolute,
+                    left: Val::Vw(3.),
+                    height: Val::Vh(1.),
+                    width: Val::Vh(1.),
+                    ..default()
+                },
+                UIDot::Right,
+                BorderRadius::MAX,
+                BackgroundColor(Color::srgba(1., 0.3, 0.9, 0.8)),
+                Visibility::Hidden,
+            ),
+            (
+                Node {
+                    display: Display::Block,
+                    position_type: PositionType::Absolute,
+                    top: Val::Vw(3.),
+                    height: Val::Vh(1.),
+                    width: Val::Vh(1.),
+                    ..default()
+                },
+                UIDot::Bottom,
+                BorderRadius::MAX,
+                BackgroundColor(Color::srgba(1., 0.3, 0.9, 0.8)),
+                Visibility::Hidden,
+            ),
+        ],
     ));
 }
 
