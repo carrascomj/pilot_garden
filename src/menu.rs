@@ -8,7 +8,8 @@ use crate::{
     Capsule,
     config::GameState,
     digging::{Collectible, OnHand},
-    dodgy::ArchAnimation,
+    dodgy::{ArchAnimation, Dodgy},
+    emoji_particles::SecretRevealed,
     world_timer::TimerComp,
 };
 
@@ -52,14 +53,22 @@ fn spawn_game_menu(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut ui_materials: ResMut<Assets<HibernationMaterial>>,
+    mut secret_rev: ResMut<SecretRevealed>,
     mut window: Single<&mut Window>,
     collectibles: Query<Entity, (With<Collectible>, With<OnHand>)>,
+    mut dodgers: Query<(&Dodgy, &mut Transform, &mut TimerComp), Without<Capsule>>,
 ) {
     // first, remove all onhand collectibles. Otherwise, the
     // player could just die with a full shovel and beat the game
     for ent in &collectibles {
         commands.entity(ent).despawn()
     }
+    // reset persistent dodgers if they were above
+    for (dodgy, mut trans, mut timer) in &mut dodgers {
+        timer.0.pause();
+        trans.translation = dodgy.init_pos;
+    }
+    secret_rev.0 = false;
     commands.spawn((
         Node {
             width: Val::Percent(100.0),

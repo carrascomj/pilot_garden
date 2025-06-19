@@ -369,7 +369,6 @@ fn spawn_tool_bench(
     existing_tooltip: Query<Entity, With<ToolBench>>,
     mut tooltip_handle: Local<Option<Handle<Scene>>>,
 ) {
-    // hold a handle to the streelight scene between calls
     for tooltip in &existing_tooltip {
         commands.entity(tooltip).despawn();
     }
@@ -423,6 +422,7 @@ fn spawn_crops(
 
     commands.spawn((SceneRoot(crop_scene.clone()), Crop));
 }
+
 /// The player may bump with objects. If they have a "main" bone, this will cause a
 /// small procedural animation that twists the object back and forth.
 /// Marker for main bone, added after loading the gltf if a bone with name "main" exists.
@@ -480,7 +480,6 @@ fn tag_gltf_on_add(
                 commands
                     .entity(entity)
                     .insert(FakeGround)
-                    .insert(Secret)
                     .observe(was_removed_by_player)
                     .with_child((
                         Mesh3d(meshes.add(Cuboid::new(1., 4., 1.))),
@@ -511,6 +510,21 @@ fn tag_gltf_on_add(
             commands
                 .entity(entity)
                 .insert((Diggable {}, OneSizeCollider));
+        } else if name.as_str().starts_with("dodgy") {
+            // this if-else is outside of the match to be able
+            // to add this also to "crop_ground_special"
+            let init_pos = transform.translation;
+            let last_pos = init_pos + (Vec3::Y * 20.);
+            commands.entity(entity).insert((
+                ShowOnAlarmTime::as_false(),
+                TimerComp::from_elapsed(5.),
+                Dodgy {
+                    init_pos,
+                    last_pos,
+                    go_back: false,
+                    ignore_viewing: false,
+                },
+            ));
         }
     }
 }
