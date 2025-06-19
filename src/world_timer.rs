@@ -470,18 +470,23 @@ fn restart_day(
 
 fn respawn_tooltip(
     mut commands: Commands,
-    tooltip: Single<(Entity, &TimerComp, &ShowOnAlarmTime), With<ToolBench>>,
+    existing_tooltip: Single<(Entity, &TimerComp, &ShowOnAlarmTime), With<ToolBench>>,
     asset_server: Res<AssetServer>,
+    mut tooltip_handle: Local<Option<Handle<Scene>>>,
 ) {
-    if tooltip.1.0.just_finished() && tooltip.2.show {
-        commands.entity(tooltip.0).despawn();
+    if existing_tooltip.1.0.just_finished() && existing_tooltip.2.show {
+        if tooltip_handle.is_none() {
+            *tooltip_handle =
+                Some(asset_server.load(GltfAssetLabel::Scene(0).from_asset("tools.glb")));
+        }
+        commands.entity(existing_tooltip.0).despawn();
         let mut timer = TimerComp::from_elapsed(2.5);
         timer.0.pause();
         // this is the initial position of the scene
         // the tooltip inside the scene is put to match bush.gltf
         let init_pos = Vec3::new(0., -11., 0.);
         commands.spawn((
-            SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("tools.glb"))),
+            SceneRoot((*tooltip_handle).as_ref().expect("works").clone()),
             timer,
             Transform::from_translation(init_pos),
             ToolBench,
