@@ -2,7 +2,12 @@
 
 use bevy::prelude::*;
 
-use crate::{config::GameState, player_movement::Player, world_timer::TimerComp};
+use crate::{
+    config::GameState,
+    emoji_particles::{EmojiBurst, SecretRevealed},
+    player_movement::Player,
+    world_timer::TimerComp,
+};
 
 /// Game over screen for when the player dies.
 pub struct GameOver;
@@ -20,7 +25,12 @@ impl Plugin for GameOver {
 #[derive(Component)]
 struct GameOverScreen;
 
-fn show_game_over(mut commands: Commands, asset_server: ResMut<AssetServer>) {
+fn show_game_over(
+    mut commands: Commands,
+    mut secret_rev: ResMut<SecretRevealed>,
+    asset_server: ResMut<AssetServer>,
+    mut emoji_event: EventWriter<EmojiBurst>,
+) {
     commands.spawn((
         Node {
             width: Val::Percent(100.0),
@@ -45,6 +55,11 @@ fn show_game_over(mut commands: Commands, asset_server: ResMut<AssetServer>) {
             TextShadow::default(),
         )],
     ));
+    emoji_event.write(EmojiBurst {
+        velocity: 3000.,
+        percent: 0.8,
+    });
+    secret_rev.0 = false;
 }
 
 fn fade_in_game_over(

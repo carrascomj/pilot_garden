@@ -159,7 +159,6 @@ fn spawn_gnomes_above(
         ));
         if first {
             ent_comm.insert(PlatformMover);
-            first = false;
         }
     }
 }

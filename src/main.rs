@@ -13,6 +13,7 @@ use std::{f32::consts::TAU, time::Duration};
 mod config;
 mod digging;
 mod dodgy;
+mod emoji_particles;
 mod game_over;
 mod gnomes;
 mod killer_arms;
@@ -24,6 +25,7 @@ mod world_timer;
 
 use digging::{DiggingPlugin, Life, Minable, OneSizeCollider};
 use dodgy::{Dodgy, DodgyPlugin};
+use emoji_particles::EmojiPlugin;
 use game_over::GameOver;
 use gnomes::GnomePlugin;
 use killer_arms::{KillerArmPlugin, KillerHead, KillerPoint, KillerTimer};
@@ -36,27 +38,30 @@ use config::{BUMP_DISTANCE, GROUND_Y, GameState};
 
 use crate::{
     digging::{Diggable, FakeGround, was_removed_by_player},
+    emoji_particles::{Secret, SecretRevealed},
     point_raycast::RayBlocker,
 };
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "And you will be happy".into(),
-                name: Some("And you will be happy".into()),
-                // Tells Wasm to resize the window according to the available canvas
-                fit_canvas_to_parent: true,
-                // Tells Wasm not to override default event handling, like F5, Ctrl+R etc.
-                prevent_default_event_handling: false,
-                enabled_buttons: bevy::window::EnabledButtons {
-                    maximize: false,
-                    ..Default::default()
-                },
+        .add_plugins((DefaultPlugins
+            .set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "And you will be happy".into(),
+                    name: Some("And you will be happy".into()),
+                    // Tells Wasm to resize the window according to the available canvas
+                    fit_canvas_to_parent: true,
+                    // Tells Wasm not to override default event handling, like F5, Ctrl+R etc.
+                    prevent_default_event_handling: false,
+                    enabled_buttons: bevy::window::EnabledButtons {
+                        maximize: false,
+                        ..Default::default()
+                    },
+                    ..default()
+                }),
                 ..default()
-            }),
-            ..default()
-        }),))
+            })
+            .set(ImagePlugin::default_nearest()),))
         .init_state::<GameState>()
         .add_systems(
             Startup,
@@ -83,6 +88,7 @@ fn main() {
             DayNightPlugin,
             DiggingPlugin,
             DodgyPlugin,
+            EmojiPlugin,
             FirstPersonPickerPlugin,
             GameMenu,
             GameOver,
@@ -193,11 +199,13 @@ fn setup_colliders_below(mut commands: Commands) {
 /// If the player has managed to dig enough, switch to below.
 fn transit_to_below(
     mut next_state: ResMut<NextState<GameState>>,
+    mut secret_rev: ResMut<SecretRevealed>,
     mut ambient_light: ResMut<AmbientLight>,
     player: Single<&Transform, With<Player>>,
 ) {
     if player.translation.y < -8. {
         next_state.set(GameState::Below);
+        secret_rev.0 = true;
         // just to see a bit better in the interiors
         // although this will be overriden by the gnomes sometimes
         ambient_light.brightness = 200.
@@ -464,6 +472,7 @@ fn tag_gltf_on_add(
                     Minable {},
                     Life::JustSpawned,
                     Collider::from_translation(BUSH_TRANS + Vec3::Y * 0.5, SIZE),
+                    Secret,
                 ));
             }
             "crop_ground_special" => {
@@ -471,6 +480,7 @@ fn tag_gltf_on_add(
                 commands
                     .entity(entity)
                     .insert(FakeGround)
+                    .insert(Secret)
                     .observe(was_removed_by_player)
                     .with_child((
                         Mesh3d(meshes.add(Cuboid::new(1., 4., 1.))),

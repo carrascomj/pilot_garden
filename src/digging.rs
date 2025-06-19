@@ -3,6 +3,7 @@
 use std::f32::consts::PI;
 
 use crate::config::{GameState, REST_ROT, SEEDS_ROT, SHOVEL_DURABILITY};
+use crate::emoji_particles::{EmojiBurst, SecretRevealed};
 use crate::gnomes::{GnomeMachine, PlatformMover};
 use crate::player_movement::Collider;
 use crate::world_timer::TimerComp;
@@ -264,11 +265,25 @@ fn animate_interaction(mut bones: Query<(&mut Transform, &OnHand, &TimerComp, &C
 // existing Entity, presumably with a [`TimerComp`] already that would
 // clash with it already.
 #[derive(Component)]
-pub struct RemoveTimer(Timer);
+pub struct RemoveTimer {
+    timer: Timer,
+    emoji_strength: f32,
+}
 
 impl RemoveTimer {
     pub fn new() -> Self {
-        Self(Timer::from_seconds(0.8, TimerMode::Once))
+        Self {
+            timer: Timer::from_seconds(0.8, TimerMode::Once),
+            emoji_strength: 1.,
+        }
+    }
+    pub fn with_emoji(strength: f32) -> Self {
+        {
+            Self {
+                timer: Timer::from_seconds(0.8, TimerMode::Once),
+                emoji_strength: strength,
+            }
+        }
     }
 }
 
@@ -278,6 +293,7 @@ impl RemoveTimer {
 /// the entity afterwards at [`remove_animation`].
 fn remove_when_life_depleted(
     mut commands: Commands,
+    mut secret_rev: ResMut<SecretRevealed>,
     mut lifes: Query<(Entity, &mut Transform, &mut Life, Option<&mut GnomeMachine>), Changed<Life>>,
 ) {
     for (entity, mut trans, mut life, maybe_gnome) in lifes.iter_mut() {
@@ -286,8 +302,10 @@ fn remove_when_life_depleted(
             if count <= &0 {
                 if let Some(mut gnome) = maybe_gnome {
                     gnome.next_state();
+                    // if a gnome is hitted, the secret is revealed
+                    secret_rev.0 = true;
                 } else {
-                    commands.entity(entity).insert(RemoveTimer::new());
+                    commands.entity(entity).insert(RemoveTimer::with_emoji(4.));
                 }
             }
             if count < &3 && is_gnome {
@@ -301,15 +319,21 @@ fn remove_when_life_depleted(
 
 fn remove_animation(
     mut commands: Commands,
+    mut emoji_event: EventWriter<EmojiBurst>,
     time: Res<Time>,
     mut to_remove: Query<(Entity, &mut Transform, &mut RemoveTimer)>,
 ) {
     for (ent, mut trans, mut rm_timer) in &mut to_remove {
-        if rm_timer.0.just_finished() {
+        if rm_timer.timer.just_finished() {
             commands.entity(ent).despawn();
+            // celebrate
+            emoji_event.write(EmojiBurst {
+                velocity: 2000.,
+                percent: 0.05 * rm_timer.emoji_strength,
+            });
         } else {
-            rm_timer.0.tick(time.delta());
-            let u = rm_timer.0.fraction();
+            rm_timer.timer.tick(time.delta());
+            let u = rm_timer.timer.fraction();
             trans.scale = (1. - u) * Vec3::ONE + u * Vec3::ZERO;
             trans.rotation *= Quat::from_rotation_y(0.2);
         }
