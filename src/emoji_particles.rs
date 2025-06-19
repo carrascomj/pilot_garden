@@ -30,7 +30,6 @@ impl Plugin for EmojiPlugin {
             )
             .add_observer(
                 |_trig: Trigger<OnRemove, Secret>, mut sc: ResMut<SecretRevealed>| {
-                    println!("hello secret");
                     sc.0 = true;
                 },
             );
@@ -80,7 +79,7 @@ fn setup_emoji_particles(
                 ..default()
             },
             // TODO: remember to apply small delta to z to avoid z-order fighting
-            Transform::from_xyz(-walls_2d / 2. * 0.9, -floor_2d / 2. - 64., 0.),
+            Transform::from_xyz(-walls_2d / 2. * 0.8, -floor_2d / 2. - 64., 0.),
             Velocity2d(Vec2::ZERO),
         )
     }));
@@ -126,9 +125,8 @@ fn resolve_particle_physics(
     let ceiling = -floor;
     let width = window.resolution.physical_width();
     let left_wall = -((width / 2) as f32);
-    let right_wall = left_wall * 0.6;
-    // println!("left -> {left_wall}");
-    // println!("right -> {right_wall}");
+    let right_wall = left_wall * 0.55;
+    let left_wall = left_wall * 0.85;
     for (mut trans, mut velocity) in &mut query {
         if velocity.0.y > 0. {
             velocity.0 = velocity.0 - velocity.0 * FRICTION * dt;
