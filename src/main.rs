@@ -220,20 +220,9 @@ pub struct Capsule {
 }
 
 /// Spawn main initial scene with all bushes, crops, etc.
-fn setup_main_scene(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut bush_handle: Local<Option<Handle<Scene>>>,
-) {
-    if bush_handle.is_none() {
-        *bush_handle = Some(asset_server.load(GltfAssetLabel::Scene(0).from_asset("bush.gltf")));
-    }
-
+fn setup_main_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(SceneRoot(
-        bush_handle
-            .as_ref()
-            .expect("This is always loaded before.")
-            .clone(),
+        asset_server.load(GltfAssetLabel::Scene(0).from_asset("bush.gltf")),
     ));
 
     // light in safe zone
@@ -288,6 +277,7 @@ fn setup_below(mut commands: Commands) {
                 ..default()
             },
             Transform::from_xyz(26.0, -20.0, 76.4),
+            StateScoped(GameState::Below),
         ),
         (
             PointLight {
@@ -304,6 +294,7 @@ fn setup_below(mut commands: Commands) {
                 ..default()
             },
             Transform::from_xyz(30.0, -21.4, -3.8),
+            StateScoped(GameState::Below),
         ),
         (
             PointLight {
@@ -320,6 +311,7 @@ fn setup_below(mut commands: Commands) {
                 ..default()
             },
             Transform::from_xyz(30.0, -21.4, -11.8),
+            StateScoped(GameState::Below),
         ),
         (
             PointLight {
@@ -336,6 +328,7 @@ fn setup_below(mut commands: Commands) {
                 ..default()
             },
             Transform::from_xyz(27.0, -15., 7.8),
+            StateScoped(GameState::Below),
         ),
         (
             PointLight {
@@ -352,6 +345,7 @@ fn setup_below(mut commands: Commands) {
                 ..default()
             },
             Transform::from_xyz(23.56, -15., -7.75),
+            StateScoped(GameState::Below),
         ),
     ]);
 }
