@@ -1,7 +1,7 @@
 //! 2D particle system for emojis (streaming-like?), on
 //! performed irrelevant actions that the "viewers" would like.
 
-use bevy::prelude::*;
+use bevy::{ecs::entity_disabling::Disabled, prelude::*};
 use fastrand::Rng;
 
 use crate::config::GameState;
@@ -20,14 +20,17 @@ impl Plugin for EmojiPlugin {
             .add_systems(Startup, setup_emoji_particles)
             .add_systems(
                 FixedUpdate,
-                (
-                    receive_particle_velocity,
-                    apply_delayed_velocity,
-                    resolve_particle_physics,
-                )
+                resolve_particle_physics
+                    .run_if(not(in_state(GameState::Menu)))
+                    .run_if(is_secret_and_dirty),
+            )
+            .add_systems(
+                FixedUpdate,
+                (receive_particle_velocity, apply_delayed_velocity)
                     .run_if(not(in_state(GameState::Menu)))
                     .run_if(|secret_rev: Res<SecretRevealed>| !secret_rev.0),
             )
+            .add_systems(Last, is_secret_and_dirty.pipe(toggle_particles))
             .add_observer(
                 |_trig: Trigger<OnRemove, Secret>, mut sc: ResMut<SecretRevealed>| {
                     sc.0 = true;
@@ -234,5 +237,41 @@ fn apply_delayed_velocity(
                 }
             }
         }
+    }
+}
+
+/// True if the secret is not revealed or the particles are still in the screen,
+/// since we want to wait for them to be out to stop the particle system.
+fn is_secret_and_dirty(
+    secret_rev: Res<SecretRevealed>,
+    particles: Query<&Transform, With<Velocity2d>>,
+    window: Query<&Window>,
+) -> bool {
+    if secret_rev.0 {
+        if let Ok(window) = window.single() {
+            let height = window.resolution.physical_height();
+            let floor = -((height / 2) as f32) - 64.;
+            return particles.iter().any(|trans| trans.translation.y > floor);
+        }
+    }
+    true
+}
+
+/// Disable/enable particle when [`is_secret_and_dirty`] changes.
+fn toggle_particles(
+    is_particles_visible: In<bool>,
+    mut commands: Commands,
+    particles: Query<(Entity, Has<Disabled>), With<Velocity2d>>,
+    mut was_particles_visible: Local<bool>,
+) {
+    if *is_particles_visible & *was_particles_visible {
+        for (entity, disabled) in particles {
+            if disabled {
+                commands.entity(entity).insert(Disabled);
+            } else {
+                commands.entity(entity).remove::<Disabled>();
+            }
+        }
+        *was_particles_visible = *is_particles_visible;
     }
 }
