@@ -124,7 +124,7 @@ fn setup_colliders_above(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>
         (2., 20., 16., 20.3106, 8.0, -2.0),  // right wall
         (2., 20., 25., 20.3106, 8.0, -2.0),  // left wall
         (14., 2., 23., 25., 8.0, -2.0),      // front wall
-        (8., 2., 23., 13., 8.0, -2.0),       // back wall
+        (8., 3., 23., 12.5, 8.0, -2.0),      // back wall
         // good ending exit
         (1., 1., 25., 7.78, 1.0, -4.0), // back wall
         (1., 1., 25., 5.78, 1.0, -4.0), // back wall
