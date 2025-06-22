@@ -25,9 +25,12 @@ impl Plugin for KillerArmPlugin {
                     activate_lasers,
                     draw_lasers,
                     show_dots_lasers,
+                    spawn_killing_beam,
                 )
                     .run_if(in_state(GameState::Above)),
             )
+            .add_systems(Update, move_to)
+            .add_event::<BeamOrder>()
             .init_resource::<ShowDots>();
     }
 }
@@ -47,6 +50,14 @@ pub struct KillerHead;
 #[derive(Component)]
 struct KillerArm;
 
+/// Entities with this will move to `to` over time.delta() and then
+/// be despawned.
+#[derive(Component)]
+struct MoveTo {
+    to: Vec3,
+    will_kill: bool,
+}
+
 fn spawn_killing_arm(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -62,7 +73,7 @@ fn spawn_killing_arm(
         .expect("This is always loaded before");
     for killer_position in [
         Vec3::new(12., 6., -22.),
-        Vec3::new(-4., 8., 26.),
+        // Vec3::new(-4., 8., 26.),
         Vec3::new(39., 5.5, 0.),
         Vec3::new(-19., 5.5, 0.),
     ] {
@@ -76,7 +87,6 @@ fn spawn_killing_arm(
             KillerArm,
             Transform::from_translation(init_pos),
             timer,
-            // laser_timer,
             ShowOnAlarmTime::as_false(),
             Dodgy {
                 init_pos,
@@ -212,7 +222,7 @@ struct ShowDots {
 fn draw_lasers(
     mut gizmos: Gizmos,
     mut ray_cast: MeshRayCast,
-    mut next_state: ResMut<NextState<GameState>>,
+    mut ev_beam_order: EventWriter<BeamOrder>,
     mut show_dots: ResMut<ShowDots>,
     time: Res<Time>,
     mut killer_points: Query<
@@ -222,8 +232,10 @@ fn draw_lasers(
     player: Single<(Entity, &Transform), (With<Player>, Without<KillerPoint>)>,
 ) {
     let (mut right, mut left, mut bottom) = (false, false, false);
+    // guard for only setting one beam to kill the player (and avoid setting GameOver more than once)
+    let mut will_kill = false;
     for (trans, timer, mut killer_timer) in &mut killer_points {
-        if timer.0.finished() {
+        if timer.0.finished() && killer_timer.can_kill {
             let ray_pos = trans.translation();
             let start = ray_pos;
             let end = player.1.translation;
@@ -236,18 +248,22 @@ fn draw_lasers(
             {
                 let mult = if *target_entity == player.0 { 1.5 } else { 0. };
                 gizmos.line(
-                    trans.translation(),
+                    ray_pos,
                     hit.point - mult * Vec3::Y,
                     // MAGENTA,
                     Color::BLACK.mix(&MAGENTA, killer_timer.timer.fraction()),
                 );
                 if killer_timer.timer.just_finished() && killer_timer.can_kill {
-                    if player.0 == *target_entity {
-                        next_state.set(GameState::GameOver);
-                        break;
-                    } else {
-                        killer_timer.can_kill = false;
+                    let is_player = player.0 == *target_entity;
+                    ev_beam_order.write(BeamOrder {
+                        from: ray_pos,
+                        to: hit.point,
+                        will_kill: is_player && !will_kill,
+                    });
+                    if is_player {
+                        will_kill = true;
                     }
+                    killer_timer.can_kill = false;
                 }
                 // check if UI should show direction of lasers
                 if *target_entity == player.0 {
@@ -309,6 +325,77 @@ fn show_dots_lasers(show_dots: Res<ShowDots>, mut ui_dots: Query<(&mut Visibilit
                     };
                 }
             }
+        }
+    }
+}
+
+#[derive(Event)]
+struct BeamOrder {
+    from: Vec3,
+    to: Vec3,
+    will_kill: bool,
+}
+
+fn spawn_killing_beam(
+    mut commands: Commands,
+    mut ev_beam_order: EventReader<BeamOrder>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    // state to handle mesh and materials across runs
+    mut handles: Local<(Option<Handle<Mesh>>, Option<Handle<StandardMaterial>>)>,
+) {
+    for BeamOrder {
+        from, // Vec3
+        to,   // Vec3
+        will_kill,
+    } in ev_beam_order.read()
+    {
+        if let (None, None) = *handles {
+            handles.0 = Some(meshes.add(Sphere::new(0.05)));
+            handles.1 = Some(materials.add(StandardMaterial {
+                base_color: MAGENTA.with_alpha(0.9),
+                diffuse_transmission: 0.1,
+                alpha_mode: AlphaMode::Blend,
+                // emissive: LinearRgba::rgb(2.00, 0.6, 1.8),
+                ..default()
+            }));
+        }
+        commands.spawn((
+            // righ-angle rotation towards to
+            Transform::from_translation(*from),
+            MoveTo {
+                to: *to,
+                will_kill: *will_kill,
+            },
+            Mesh3d(handles.0.as_ref().expect("works").clone()),
+            MeshMaterial3d(handles.1.as_ref().expect("works").clone()),
+        ));
+    }
+}
+
+fn move_to(
+    mut commands: Commands,
+    mut next_state: ResMut<NextState<GameState>>,
+    time: Res<Time>,
+    mut transforms: Populated<(Entity, &mut Transform, &MoveTo)>,
+) {
+    let delta = time.delta_secs();
+    const BEAM_SPEED: f32 = 20.;
+    for (entity, mut trans, move_to) in transforms.iter_mut() {
+        let dir = trans.translation - move_to.to;
+        let distance = dir.length_squared();
+        if distance > 0.05 {
+            trans.translation -= dir.normalize() * delta * BEAM_SPEED;
+        } else {
+            if move_to.will_kill {
+                next_state.set(GameState::GameOver);
+            }
+        }
+        if distance < 0.08 {
+            trans.scale += delta * BEAM_SPEED;
+        }
+        if trans.scale.x > 85. {
+            commands.entity(entity).despawn();
         }
     }
 }
