@@ -26,7 +26,7 @@ const ALERTER_POSITIONS: [Vec2; 8] = [
     Vec2::new(25.685, 40.),
     Vec2::new(25., 75.),
     Vec2::new(-25., 75.),
-    Vec2::new(-22.415, 103.86),
+    Vec2::new(-47.415, 96.),
 ];
 
 /// Spawn gnomes were relevant and control the state machine,
@@ -65,6 +65,10 @@ pub enum GnomeState {
         spline: CubicCurve<Vec2>,
     },
     Attacking,
+    WaitingForAttack {
+        timer: Timer,
+        already_looking: bool,
+    },
     Dying,
 }
 
@@ -99,7 +103,19 @@ impl GnomeMachine {
                 .expect("Spline failed to resolve."),
             },
             GnomeState::Active => GnomeState::Attacking,
+            GnomeState::WaitingForAttack { .. } => GnomeState::Attacking,
             GnomeState::Moving { .. } => GnomeState::Active,
+        };
+        self.is_changed = true;
+    }
+
+    pub fn waiting_for_attack(&mut self) {
+        self.state = match self.state {
+            GnomeState::Dying | GnomeState::Attacking | GnomeState::Inactive => return,
+            _ => GnomeState::WaitingForAttack {
+                timer: Timer::from_seconds(3., TimerMode::Once),
+                already_looking: false,
+            },
         };
         self.is_changed = true;
     }
@@ -334,6 +350,36 @@ fn move_gnome(
                     transform.look_to(dir, Vec3::Y);
                 } else {
                     light_switch_event.write(TurnTheLights::Off);
+                    gnome.next_state()
+                }
+            }
+            GnomeState::WaitingForAttack {
+                timer,
+                already_looking,
+            } => {
+                // this is a special state for when the player has just
+                // pressed the button: wait until the player sees the gnomes, or
+                // otherwise (if the player tries to cheat by not looking) just
+                // attack when the player pass certain threshold
+                if !*already_looking {
+                    let Ok(target) = player_transform.single() else {
+                        continue;
+                    };
+                    let dir = (target.translation - transform.translation).with_y(0.);
+                    let dir = dir.normalize();
+                    transform.look_to(dir, Vec3::Y);
+                    // harcoded, the player facing the button perfectly is [1, 0, 0,]
+                    // turned around is [-1., 0., 0.], so 0.5 ~ 90 degrees to the gnomes
+                    let player_looking = target.forward().x > 0.5;
+                    let player_trying_to_flee = target.translation.x > -45.;
+                    *already_looking = player_looking || player_trying_to_flee;
+                    continue;
+                }
+                if !timer.finished() {
+                    // wait for  dramatic effect
+                    timer.tick(time.delta());
+                } else {
+                    // and finally attack the player
                     gnome.next_state()
                 }
             }

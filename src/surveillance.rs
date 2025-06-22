@@ -356,9 +356,7 @@ fn show_player_on_screen(
         }
         light_switch_writer.write(TurnTheLights::On);
         for mut gnome in &mut gnomes {
-            // FIXME: this should have some logic about the player looking, or the player being
-            // behind some stuff, probably at the GnomeMachine level
-            gnome.next_state();
+            gnome.waiting_for_attack();
         }
     }
 }
