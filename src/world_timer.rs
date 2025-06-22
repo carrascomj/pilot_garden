@@ -73,10 +73,6 @@ struct Sun {
 #[derive(Component)]
 struct NightTimer;
 
-/// Marker that makes the lasers kill the player on sight if finished.
-#[derive(Component)]
-struct DeadTimer;
-
 /// Marker for elements that appear at night.
 #[derive(Component)]
 pub struct ShowOnAlarmTime {
@@ -105,9 +101,7 @@ fn spawn_sun(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut streetlight_handle: Local<Option<Handle<Scene>>>,
 ) {
-    // FIXME: should balance day_secs, function of time
-    // night timer and the killer time
-    let day_secs = 40.;
+    let day_secs = 180.;
     let init_pos = Vec3::new(10.0, 4.0, 30.);
     let sun_radius = 100.;
     let light = DirectionalLight {
@@ -253,9 +247,7 @@ fn orbit_sun(
     let Some(mut light) = light else {
         return;
     };
-    let t = timer.0.fraction();
-    // normalize so that the day takes ~ 3/4 of the day.
-    let u = 3.0 * t * t - 2.0 * t * t * t;
+    let u = timer.0.fraction();
     let theta = sun.start_angle + u * (sun.end_angle - sun.start_angle);
 
     // YZ-plane parametric circle
@@ -278,7 +270,7 @@ fn orbit_sun(
     // [PI, 0] and [0, -PI] -> [0, 1] and [1, 0]
     let polar_u = ((PI - if theta < 0. { -theta } else { theta }) / PI).clamp(0., 1.);
     let theta_phi = (1. + (theta % (2. * PI)).cos()) / 2.;
-    // rep.0 = format!("T [{theta:.2}] P [{theta_phi:.2}]");
+    // rep.0 = format!("u=[{u:.2}]; Light=[{:.2}]", light.illuminance);
 
     // Day -> hold the bright-red colour (or lerp to something else if you like)
     let rgb = DAWN_COLOUR.lerp(MIDDAY_COLOUR, polar_u);
@@ -286,20 +278,21 @@ fn orbit_sun(
 
     // Dim the light at night so shadows disappear
     // full strength by day, 25 % at sunset,  5 % at night.
-    light.illuminance = 10_000.0
-        * if u < DAY_END {
-            1.0
-        } else if u < SUNSET_END {
-            1.0 - 0.75 * (u - DAY_END) / (SUNSET_END - DAY_END)
-        } else {
-            0.25 - 0.20 * (u - SUNSET_END) / (1.0 - SUNSET_END)
-        }
-        .max(0.05); // never pitch-black unless you want it
+    let light_multiplier = if u < DAY_END {
+        1.0
+    } else {
+        1.0 - 0.95 * (u - DAY_END) / (SUNSET_END - DAY_END)
+    };
+    light.illuminance = 10_000.0 * light_multiplier;
 
     // rotate skybox
     if let Ok(mut sky) = skybox.single_mut() {
         sky.rotation = Quat::from_rotation_x(theta);
-        sky.brightness = 1500. * theta_phi + 20.;
+        sky.brightness = if u < DAY_END {
+            1500. * theta_phi + 20.
+        } else {
+            (1500. * theta_phi * light_multiplier).max(20.)
+        };
     }
 }
 

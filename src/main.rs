@@ -511,7 +511,7 @@ fn tag_gltf_on_add(
             let last_pos = init_pos + (Vec3::Y * 20.);
             commands.entity(entity).insert((
                 ShowOnAlarmTime::as_false(),
-                TimerComp::from_elapsed(5.),
+                TimerComp::from_elapsed(7.),
                 Dodgy {
                     init_pos,
                     last_pos,

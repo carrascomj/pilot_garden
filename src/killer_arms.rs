@@ -77,7 +77,7 @@ fn spawn_killing_arm(
         Vec3::new(39., 5.5, 0.),
         Vec3::new(-19., 5.5, 0.),
     ] {
-        let show_time = 10.;
+        let show_time = 25.;
         let mut timer = TimerComp::from_elapsed(show_time);
         timer.0.pause();
         let init_pos = killer_position - (Vec3::Y * 100.);
@@ -111,7 +111,7 @@ fn setup_inverse_kinematics(
                 if let Ok(ik_bone) = find_entity(*child, "ik_target", parents, names) {
                     commands.entity(ik_bone).insert(IkConstraint {
                         chain_length: 11,
-                        iterations: 500,
+                        iterations: 300,
                         target: killer_bone,
                         pole_target: None,
                         pole_angle: -std::f32::consts::FRAC_PI_2,
