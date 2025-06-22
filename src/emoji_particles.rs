@@ -81,7 +81,6 @@ fn setup_emoji_particles(
                 image: sprite_handle,
                 ..default()
             },
-            // TODO: remember to apply small delta to z to avoid z-order fighting
             Transform::from_xyz(-walls_2d / 2. * 0.8, -floor_2d / 2. - 64., 0.),
             Velocity2d(Vec2::ZERO),
         )

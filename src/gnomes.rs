@@ -16,8 +16,7 @@ use crate::{
 const GNOME_SIZE: Vec3 = Vec3::new(0.5, 1.5, 0.5);
 const GNOME_VIEW_DISTANCE_POW2: f32 = 100.;
 const COS_THRESHOLD: f32 = 0.70710677; // cos(PI / 4)
-// TODO: set this actually right
-const GNOME_VELOCITY: f32 = 20.;
+const GNOME_VELOCITY: f32 = 25.;
 const ALERTER_POSITIONS: [Vec2; 8] = [
     Vec2::new(31., -12.2),
     Vec2::new(31., -4.),
@@ -361,13 +360,14 @@ fn move_gnome(
                 // pressed the button: wait until the player sees the gnomes, or
                 // otherwise (if the player tries to cheat by not looking) just
                 // attack when the player pass certain threshold
+                let Ok(target) = player_transform.single() else {
+                    continue;
+                };
+                let dir = (target.translation - transform.translation).with_y(0.);
+                let dir = dir.normalize();
+                transform.look_to(dir, Vec3::Y);
+
                 if !*already_looking {
-                    let Ok(target) = player_transform.single() else {
-                        continue;
-                    };
-                    let dir = (target.translation - transform.translation).with_y(0.);
-                    let dir = dir.normalize();
-                    transform.look_to(dir, Vec3::Y);
                     // harcoded, the player facing the button perfectly is [1, 0, 0,]
                     // turned around is [-1., 0., 0.], so 0.5 ~ 90 degrees to the gnomes
                     let player_looking = target.forward().x > 0.5;

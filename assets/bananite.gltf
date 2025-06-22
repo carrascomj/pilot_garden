@@ -93,7 +93,7 @@
 		{
 			"bufferView":0,
 			"componentType":5126,
-			"count":38698,
+			"count":31045,
 			"max":[
 				1.2282750606536865,
 				4.221480369567871,
@@ -109,45 +109,45 @@
 		{
 			"bufferView":1,
 			"componentType":5126,
-			"count":38698,
+			"count":31045,
 			"type":"VEC3"
 		},
 		{
 			"bufferView":2,
 			"componentType":5126,
-			"count":38698,
+			"count":31045,
 			"type":"VEC2"
 		},
 		{
 			"bufferView":3,
 			"componentType":5121,
-			"count":38698,
+			"count":31045,
 			"normalized":true,
 			"type":"VEC4"
 		},
 		{
 			"bufferView":4,
 			"componentType":5123,
-			"count":38698,
+			"count":31045,
 			"normalized":true,
 			"type":"VEC4"
 		},
 		{
 			"bufferView":5,
 			"componentType":5121,
-			"count":38698,
+			"count":31045,
 			"type":"VEC4"
 		},
 		{
 			"bufferView":6,
 			"componentType":5126,
-			"count":38698,
+			"count":31045,
 			"type":"VEC4"
 		},
 		{
 			"bufferView":7,
 			"componentType":5123,
-			"count":77844,
+			"count":58500,
 			"type":"SCALAR"
 		},
 		{
@@ -160,56 +160,56 @@
 	"bufferViews":[
 		{
 			"buffer":0,
-			"byteLength":464376,
+			"byteLength":372540,
 			"byteOffset":0,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":464376,
-			"byteOffset":464376,
+			"byteLength":372540,
+			"byteOffset":372540,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":309584,
-			"byteOffset":928752,
+			"byteLength":248360,
+			"byteOffset":745080,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":154792,
-			"byteOffset":1238336,
+			"byteLength":124180,
+			"byteOffset":993440,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":309584,
-			"byteOffset":1393128,
+			"byteLength":248360,
+			"byteOffset":1117620,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":154792,
-			"byteOffset":1702712,
+			"byteLength":124180,
+			"byteOffset":1365980,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":619168,
-			"byteOffset":1857504,
+			"byteLength":496720,
+			"byteOffset":1490160,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":155688,
-			"byteOffset":2476672,
+			"byteLength":117000,
+			"byteOffset":1986880,
 			"target":34963
 		},
 		{
 			"buffer":0,
 			"byteLength":64,
-			"byteOffset":2632360
+			"byteOffset":2103880
 		}
 	],
 	"samplers":[
@@ -220,7 +220,7 @@
 	],
 	"buffers":[
 		{
-			"byteLength":2632424,
+			"byteLength":2103944,
 			"uri":"bananite.bin"
 		}
 	]

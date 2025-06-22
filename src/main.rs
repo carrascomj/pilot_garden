@@ -72,6 +72,7 @@ fn main() {
             OnEnter(GameState::Below),
             (setup_colliders_below, setup_below),
         )
+        .add_systems(OnExit(GameState::GameOver), remove_on_game_over)
         .add_systems(OnEnter(GameState::Menu), (spawn_tool_bench, spawn_crops))
         .add_systems(
             Update,
@@ -263,7 +264,27 @@ fn setup_capsule(
     ));
 }
 
-fn setup_below(mut commands: Commands) {
+#[derive(Component)]
+struct GameOverRemove;
+
+fn remove_on_game_over(mut commands: Commands, to_rm: Query<Entity, With<GameOverRemove>>) {
+    for ent in to_rm {
+        commands.entity(ent).despawn();
+    }
+}
+
+fn setup_below(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut below_handle: Local<Option<Handle<Scene>>>,
+) {
+    if below_handle.is_none() {
+        *below_handle = Some(asset_server.load(GltfAssetLabel::Scene(0).from_asset("below.glb")));
+    }
+    commands.spawn((
+        SceneRoot(below_handle.as_ref().expect("initialized already").clone()),
+        GameOverRemove,
+    ));
     commands.spawn_batch([
         (
             PointLight {
