@@ -4,6 +4,7 @@ use crate::config::{
 use bevy::{
     core_pipeline::{Skybox, tonemapping::Tonemapping},
     input::mouse::AccumulatedMouseMotion,
+    pbr::NotShadowCaster,
     prelude::*,
     render::render_resource::{TextureViewDescriptor, TextureViewDimension},
 };
@@ -52,19 +53,25 @@ struct PhysicalTranslation(Vec3);
 struct PreviousPhysicalTranslation(Vec3);
 
 /// Create the player with the camera (FPS-like)
-fn spawn_player(
-    mut commands: Commands,
-    asset_server: ResMut<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-) {
-    let cub = Capsule3d {
-        radius: 1.0,
-        half_length: 1.0,
-    };
-    let capsule_mesh = Mesh3d(meshes.add(cub));
+fn spawn_player(mut commands: Commands, asset_server: ResMut<AssetServer>) {
+    let mesh: Handle<Mesh> = asset_server.load(
+        GltfAssetLabel::Primitive {
+            mesh: 0,
+            primitive: 0,
+        }
+        .from_asset("player.glb#Mesh0/Primitive0"),
+    );
+    let material: Handle<StandardMaterial> = asset_server.load(
+        GltfAssetLabel::Material {
+            index: 0,
+            is_scale_inverted: false,
+        }
+        .from_asset("player.glb#Material0"),
+    );
     commands.spawn((
         Tonemapping::BlenderFilmic,
         Camera3d::default(),
+        NotShadowCaster,
         Projection::Perspective(PerspectiveProjection {
             fov: PI / 3.0,
             ..default()
@@ -81,7 +88,8 @@ fn spawn_player(
         PhysicalTranslation(START_POS),
         PreviousPhysicalTranslation(START_POS),
         Player {},
-        capsule_mesh,
+        Mesh3d(mesh),
+        MeshMaterial3d(material),
     ));
     let handle = asset_server.load("skybox.png");
     commands.insert_resource(LoadingSkybox { handle })

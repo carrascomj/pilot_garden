@@ -392,7 +392,7 @@ fn move_to(
             }
         }
         if distance < 0.08 {
-            trans.scale += delta * BEAM_SPEED;
+            trans.scale += delta * 25.;
         }
         if trans.scale.x > 85. {
             commands.entity(entity).despawn();
