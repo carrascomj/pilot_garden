@@ -5,6 +5,7 @@ use std::time::Duration;
 use bevy::prelude::*;
 
 use crate::{
+    GameOverRemove,
     config::GameState,
     digging::{Life, Minable},
     killer_arms::find_entity,
@@ -183,7 +184,7 @@ fn spawn_gnomes_below(mut commands: Commands, gnome_asset: Res<GnomeHandle>) {
     let (x, y, z) = (31., -26.3, -12.2);
     commands.spawn((
         SceneRoot(gnome_asset.handle.clone()),
-        StateScoped(GameState::Below),
+        GameOverRemove,
         HasAnimationChild(None),
         GnomeMachine {
             state: GnomeState::LoadingBanana,
