@@ -20,7 +20,12 @@ impl Plugin for DiggingPlugin {
             .add_event::<SeedsPlaced>()
             .add_systems(
                 Update,
-                (animate_interaction, remove_when_life_depleted).run_if(in_state(GameState::Above)),
+                (
+                    animate_interaction,
+                    remove_when_life_depleted,
+                    animate_shrink,
+                )
+                    .run_if(in_state(GameState::Above)),
             )
             // tools animation might be playing while in Below already
             .add_systems(
@@ -270,6 +275,11 @@ pub struct RemoveTimer {
     timer: Timer,
     emoji_strength: f32,
 }
+/// Marker for shrinking a [`Transform`] at the end of the timer.
+#[derive(Component)]
+struct ShrinkAnimation {
+    timer: Timer,
+}
 
 impl RemoveTimer {
     pub fn new() -> Self {
@@ -295,11 +305,11 @@ impl RemoveTimer {
 fn remove_when_life_depleted(
     mut commands: Commands,
     mut secret_rev: ResMut<SecretRevealed>,
-    mut lifes: Query<(Entity, &mut Transform, &mut Life, Option<&mut GnomeMachine>), Changed<Life>>,
+    mut lifes: Query<(Entity, &mut Life, Option<&mut GnomeMachine>), Changed<Life>>,
 ) {
-    for (entity, mut trans, mut life, maybe_gnome) in lifes.iter_mut() {
+    for (entity, mut life, maybe_gnome) in lifes.iter_mut() {
         if let Life::Left(count) = life.as_ref() {
-            let is_gnome = maybe_gnome.is_none();
+            let not_gnome = maybe_gnome.is_none();
             if count <= &0 {
                 if let Some(mut gnome) = maybe_gnome {
                     gnome.next_state();
@@ -309,8 +319,10 @@ fn remove_when_life_depleted(
                     commands.entity(entity).insert(RemoveTimer::with_emoji(4.));
                 }
             }
-            if count < &3 && is_gnome {
-                trans.scale *= 0.9;
+            if count < &3 && not_gnome {
+                commands.entity(entity).insert(ShrinkAnimation {
+                    timer: Timer::from_seconds(TOOL_ANIM_TIME, TimerMode::Once),
+                });
             }
         } else {
             *life = Life::Left(1);
@@ -341,6 +353,15 @@ fn remove_animation(
                 trans.scale = (1. - u) * Vec3::ONE + u * Vec3::ZERO;
                 trans.rotation *= Quat::from_rotation_y(0.2);
             }
+        }
+    }
+}
+
+fn animate_shrink(time: Res<Time>, mut query: Query<(&mut Transform, &mut ShrinkAnimation)>) {
+    for (mut trans, mut shrink) in &mut query {
+        shrink.timer.tick(time.delta());
+        if shrink.timer.just_finished() {
+            trans.scale *= 0.9;
         }
     }
 }
