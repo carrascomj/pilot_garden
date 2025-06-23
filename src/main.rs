@@ -63,17 +63,21 @@ fn main() {
             })
             .set(ImagePlugin::default_nearest()),))
         .init_state::<GameState>()
+        .add_systems(Startup, (setup_shared_colliders, setup_shared_meshes))
         .add_systems(
-            Startup,
-            (setup_shared_colliders, setup_main_scene, setup_capsule),
+            OnEnter(GameState::Menu),
+            (
+                setup_colliders_above,
+                setup_above_scene,
+                spawn_tool_bench,
+                spawn_crops,
+            ),
         )
-        .add_systems(OnExit(GameState::Menu), setup_colliders_above)
         .add_systems(
             OnEnter(GameState::Below),
             (setup_colliders_below, setup_below),
         )
         .add_systems(OnExit(GameState::GameOver), remove_on_game_over)
-        .add_systems(OnEnter(GameState::Menu), (spawn_tool_bench, spawn_crops))
         .add_systems(
             Update,
             (
@@ -191,6 +195,8 @@ fn setup_colliders_below(mut commands: Commands) {
         (2.0, 52., -78.5, 85., 6., -27.5),   // front wall
         (2.0, 34., -15.5, 95., 6., -27.5),   // bottom wall left
         (2.0, 12.0, -15.5, 65., 6., -27.5),  // bottom right
+        // button
+        (2., 2., -65., 80., 1., -25.129),
     ] {
         let cub = Cuboid::new(half_x, GROUND_Y * mult_y, half_z);
         let cub_transform = Transform::from_xyz(x, y, z);
@@ -202,13 +208,18 @@ fn setup_colliders_below(mut commands: Commands) {
 
 /// If the player has managed to dig enough, switch to below.
 fn transit_to_below(
+    mut commands: Commands,
     mut next_state: ResMut<NextState<GameState>>,
     mut secret_rev: ResMut<SecretRevealed>,
     mut ambient_light: ResMut<AmbientLight>,
     player: Single<&Transform, With<Player>>,
+    main_scenes: Query<Entity, With<MainScene>>,
 ) {
     if player.translation.y < -8. {
         next_state.set(GameState::Below);
+        for ent in &main_scenes {
+            commands.entity(ent).despawn();
+        }
         secret_rev.0 = true;
         // just to see a bit better in the interiors
         // although this will be overriden by the gnomes sometimes
@@ -222,15 +233,32 @@ fn transit_to_below(
 pub struct Capsule {
     pub active: bool,
 }
+/// Marker for main scene to respawn it if it does not exist.
+#[derive(Component)]
+struct MainScene;
 
 /// Spawn main initial scene with all bushes, crops, etc.
-fn setup_main_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(SceneRoot(
-        asset_server.load(GltfAssetLabel::Scene(0).from_asset("bush.gltf")),
+fn setup_above_scene(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut bush_handle: Local<Option<Handle<Scene>>>,
+    main_scene: Query<Entity, With<MainScene>>,
+) {
+    if main_scene.iter().len() > 0 {
+        return;
+    }
+    if bush_handle.is_none() {
+        *bush_handle = Some(asset_server.load(GltfAssetLabel::Scene(0).from_asset("bush.gltf")));
+    }
+
+    commands.spawn((
+        SceneRoot(bush_handle.as_ref().expect("initialized").clone()),
+        MainScene,
     ));
 
     // light in safe zone
     commands.spawn((
+        MainScene,
         PointLight {
             color: Color::Srgba(Srgba {
                 red: 1.0,
@@ -249,10 +277,12 @@ fn setup_main_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 }
 
-/// Spawn the capsule, which is generated with a material with a shader.
-fn setup_capsule(
+/// Spawn the connections between the above and below scens
+/// and the capsule, which is generated with a material with a shader.
+fn setup_shared_meshes(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
+    asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<CapsuleMaterial>>,
 ) {
     const POS: Vec3 = Vec3::new(-6.0, 3.0, 8.0);
@@ -261,6 +291,9 @@ fn setup_capsule(
         MeshMaterial3d(materials.add(CapsuleMaterial {})),
         Transform::from_translation(POS).with_rotation(Quat::from_rotation_y(3.14)),
         Capsule { active: false },
+    ));
+    commands.spawn(SceneRoot(
+        asset_server.load(GltfAssetLabel::Scene(0).from_asset("shared.glb")),
     ));
 }
 
