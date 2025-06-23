@@ -155,6 +155,11 @@ fn cast_player_ray(
 ) {
     if !interaction_cooldown.0.finished() {
         interaction_cooldown.0.tick(time.delta());
+        *cross_q.0 = BorderColor(Color::srgba(0., 0., 0., 0.2));
+        *cross_q.1 = BackgroundColor(Color::srgba(0., 0., 0., 0.2));
+        cross_q.2.color = Color::srgba(0., 0., 0., 0.2);
+        cross_q.3.height = Val::Vh(1.);
+        cross_q.3.width = Val::Vh(1.);
         return;
     }
     // Cast an automatically moving ray and bounce it off of surfaces
