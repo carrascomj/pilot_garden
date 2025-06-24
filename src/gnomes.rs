@@ -6,7 +6,7 @@ use bevy::prelude::*;
 
 use crate::{
     GameOverRemove,
-    config::GameState,
+    config::{GameState, TOOL_ANIM_TIME},
     digging::{Life, Minable},
     killer_arms::find_entity,
     player_movement::{Collider, Player},
@@ -70,6 +70,7 @@ pub enum GnomeState {
         already_looking: bool,
     },
     Dying,
+    WaitingToDie(Timer),
 }
 
 /// State machine for the gnomes
@@ -89,7 +90,9 @@ impl GnomeMachine {
     pub fn next_state(&mut self) {
         self.state = match self.state {
             GnomeState::Dying | GnomeState::Attacking => return,
-            GnomeState::Inactive => GnomeState::Dying,
+            GnomeState::Inactive => {
+                GnomeState::WaitingToDie(Timer::from_seconds(TOOL_ANIM_TIME, TimerMode::Once))
+            }
             GnomeState::LoadingBanana => {
                 GnomeState::DroppingBanana(Timer::from_seconds(2., TimerMode::Once))
             }
@@ -104,6 +107,7 @@ impl GnomeMachine {
             },
             GnomeState::Active => GnomeState::Attacking,
             GnomeState::WaitingForAttack { .. } => GnomeState::Attacking,
+            GnomeState::WaitingToDie { .. } => GnomeState::Dying,
             GnomeState::Moving { .. } => GnomeState::Active,
         };
         self.is_changed = true;
@@ -253,6 +257,10 @@ fn move_gnome(
                             spline.velocity(timer.fraction() * spline.segments().len() as f32);
                         (2, (speed.length_squared() / 1000.).clamp(1., 10.))
                     }
+                    GnomeState::WaitingToDie(timer) => {
+                        timer.unpause();
+                        (1, 1.)
+                    }
                     _ => (1, 1.),
                 };
                 if let Ok((mut player, mut transitions)) = animation_players.get_mut(anim_entity) {
@@ -382,6 +390,12 @@ fn move_gnome(
                 } else {
                     // and finally attack the player
                     gnome.next_state()
+                }
+            }
+            GnomeState::WaitingToDie(timer) => {
+                timer.tick(time.delta());
+                if timer.finished() {
+                    gnome.next_state();
                 }
             }
             _ => (),
