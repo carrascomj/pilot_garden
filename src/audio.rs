@@ -1,0 +1,90 @@
+//! Audio controllers.
+
+use bevy::prelude::*;
+
+pub struct AudioPlugin;
+
+impl Plugin for AudioPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_event::<AudioStart>()
+            .add_systems(Startup, load_assets)
+            .add_systems(Update, play_audio);
+    }
+}
+
+#[derive(Event)]
+pub enum AudioStart {
+    Bush,
+    Cheering,
+    GnomeDying,
+    Goat,
+    Pick,
+    Pop,
+    PopOut,
+    Secret,
+    Shovel,
+    UhOh,
+    Tock,
+    SwitchOn,
+    SwitchOff,
+}
+
+#[derive(Resource)]
+struct AudioAssets {
+    bush: Handle<AudioSource>,
+    cheering: Handle<AudioSource>,
+    gnome_dying: Handle<AudioSource>,
+    goat: Handle<AudioSource>,
+    pop: Handle<AudioSource>,
+    pop_out: Handle<AudioSource>,
+    shovel: Handle<AudioSource>,
+    pick: Handle<AudioSource>,
+    secret: Handle<AudioSource>,
+    tock: Handle<AudioSource>,
+    uhoh: Handle<AudioSource>,
+    switch_on: Handle<AudioSource>,
+    switch_off: Handle<AudioSource>,
+}
+
+fn load_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.insert_resource(AudioAssets {
+        bush: asset_server.load("sfx/bush.ogg"),
+        cheering: asset_server.load("sfx/cheering.ogg"),
+        gnome_dying: asset_server.load("sfx/gnome_dying.ogg"),
+        goat: asset_server.load("sfx/goat.ogg"),
+        pop: asset_server.load("sfx/pop.mp3"),
+        pop_out: asset_server.load("sfx/pop-out.mp3"),
+        shovel: asset_server.load("sfx/shovel.ogg"),
+        secret: asset_server.load("sfx/secret.mp3"),
+        tock: asset_server.load("sfx/tock.ogg"),
+        pick: asset_server.load("sfx/pick_axe.ogg"),
+        uhoh: asset_server.load("sfx/uhoh.mp3"),
+        switch_on: asset_server.load("sfx/switch_on.ogg"),
+        switch_off: asset_server.load("sfx/switch_off.ogg"),
+    });
+}
+
+fn play_audio(
+    mut commands: Commands,
+    mut audio_triggers: EventReader<AudioStart>,
+    sound_assets: Res<AudioAssets>,
+) {
+    for trigger in audio_triggers.read() {
+        let audio = match trigger {
+            AudioStart::Bush => sound_assets.bush.clone(),
+            AudioStart::Cheering => sound_assets.cheering.clone(),
+            AudioStart::GnomeDying => sound_assets.gnome_dying.clone(),
+            AudioStart::Goat => sound_assets.goat.clone(),
+            AudioStart::Pick => sound_assets.pick.clone(),
+            AudioStart::Pop => sound_assets.pop.clone(),
+            AudioStart::PopOut => sound_assets.pop_out.clone(),
+            AudioStart::Secret => sound_assets.secret.clone(),
+            AudioStart::Shovel => sound_assets.shovel.clone(),
+            AudioStart::UhOh => sound_assets.uhoh.clone(),
+            AudioStart::SwitchOn => sound_assets.switch_on.clone(),
+            AudioStart::SwitchOff => sound_assets.switch_off.clone(),
+            AudioStart::Tock => sound_assets.tock.clone(),
+        };
+        commands.spawn((AudioPlayer::<AudioSource>(audio), PlaybackSettings::DESPAWN));
+    }
+}

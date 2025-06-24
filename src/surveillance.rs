@@ -15,6 +15,7 @@ use bevy::{
 };
 
 use crate::{
+    audio::AudioStart,
     config::GameState,
     digging::{Collectible, OnHand},
     gnomes::GnomeMachine,
@@ -386,6 +387,7 @@ fn show_player_on_screen(
 fn switch_lights(
     time: Res<Time>,
     mut ligth_switch_reader: EventReader<TurnTheLights>,
+    mut audio_event: EventWriter<AudioStart>,
     mut lights: Query<(&mut Visibility, &mut SwitchableLight)>,
     mut gnomes: Query<&mut GnomeMachine>,
     mut ambient_light: ResMut<AmbientLight>,
@@ -401,11 +403,14 @@ fn switch_lights(
             timer.0.reset();
             *light = vis;
             if inactivate {
+                audio_event.write(AudioStart::SwitchOff);
                 // so that the gnomes won't attack the player while
                 // the light is off
                 for mut gnome in &mut gnomes {
                     gnome.deactivate();
                 }
+            } else {
+                audio_event.write(AudioStart::SwitchOn);
             }
         }
         if !timer.0.finished() {

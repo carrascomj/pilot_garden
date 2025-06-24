@@ -4,7 +4,7 @@
 use bevy::{ecs::entity_disabling::Disabled, prelude::*};
 use fastrand::Rng;
 
-use crate::config::GameState;
+use crate::{audio::AudioStart, config::GameState};
 
 /// 2D camera overlaid on top of the 3D camera that shows a particle
 /// system of emojis. The emojis are all spawned out of the screen
@@ -32,8 +32,11 @@ impl Plugin for EmojiPlugin {
             )
             .add_systems(Last, is_secret_and_dirty.pipe(toggle_particles))
             .add_observer(
-                |_trig: Trigger<OnRemove, Secret>, mut sc: ResMut<SecretRevealed>| {
+                |_trig: Trigger<OnRemove, Secret>,
+                 mut sc: ResMut<SecretRevealed>,
+                 mut audio_event: EventWriter<AudioStart>| {
                     sc.0 = true;
+                    audio_event.write(AudioStart::Secret);
                 },
             );
     }
@@ -104,7 +107,6 @@ pub struct SecretRevealed(pub bool);
 /// Marker for entities that are a secret.
 ///
 /// On despawn, `Secret` entities stop the emoji system and
-/// (TODO) play some violins.
 #[derive(Component)]
 pub struct Secret;
 
@@ -201,6 +203,7 @@ impl ParticleNoise {
 fn receive_particle_velocity(
     time: Res<Time>,
     mut burst_event: EventReader<EmojiBurst>,
+    mut audio_event: EventWriter<AudioStart>,
     mut timer: ResMut<ParticleTimer>,
     mut noise: ResMut<ParticleNoise>,
     mut query: Query<&mut PreVelocity2d>,
@@ -209,6 +212,7 @@ fn receive_particle_velocity(
     for EmojiBurst { velocity, percent } in burst_event.read() {
         timer.0.reset();
         let base_velocity = Vec2::Y * velocity;
+        audio_event.write(AudioStart::Cheering);
         query.iter_mut().for_each(|mut vel2d| {
             let u = &noise.sample();
             if percent > u {

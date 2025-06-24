@@ -2,6 +2,7 @@
 
 use std::f32::consts::PI;
 
+use crate::audio::AudioStart;
 use crate::config::{GameState, REST_ROT, SEEDS_ROT, SHOVEL_DURABILITY, TOOL_ANIM_TIME};
 use crate::emoji_particles::{EmojiBurst, SecretRevealed};
 use crate::gnomes::{GnomeMachine, PlatformMover};
@@ -201,7 +202,10 @@ fn wave(t: f32) -> f32 {
     (t * PI).sin()
 }
 
-fn animate_interaction(mut bones: Query<(&mut Transform, &OnHand, &TimerComp, &Collectible)>) {
+fn animate_interaction(
+    mut bones: Query<(&mut Transform, &OnHand, &TimerComp, &Collectible)>,
+    mut audio_event: EventWriter<AudioStart>,
+) {
     for (mut transform, on_hand, timer, collectible) in &mut bones {
         // the children its the mesh, transforms are better
         // applied to the parent object in the gltf since it has
@@ -209,15 +213,11 @@ fn animate_interaction(mut bones: Query<(&mut Transform, &OnHand, &TimerComp, &C
         let (rest_pos, rest_rot) = collectible.on_hand_poses();
         if !on_hand.active {
             continue;
-        } else if timer.0.finished() {
-            transform.translation = rest_pos;
-            transform.rotation = rest_rot;
-            continue;
         }
         // normalised time in the [0, 1] animation range
         let u = timer.0.fraction();
 
-        let (translation, rotation) = match collectible {
+        let (translation, rotation, audio) = match collectible {
             Collectible::Shovel(_) => {
                 let a = if u < 0.5 { u * 2.0 } else { (1.0 - u) * 2.0 };
                 let t = rest_pos
@@ -227,7 +227,7 @@ fn animate_interaction(mut bones: Query<(&mut Transform, &OnHand, &TimerComp, &C
                         -0.45 * a, // and forward
                     );
                 let r = rest_rot * Quat::from_euler(EulerRot::XYZ, -1.0 * a, 0.5, 0.0);
-                (t, r)
+                (t, r, AudioStart::Shovel)
             }
             Collectible::MiningPick => {
                 let curve = CubicCardinalSpline {
@@ -244,7 +244,7 @@ fn animate_interaction(mut bones: Query<(&mut Transform, &OnHand, &TimerComp, &C
                 .expect("Should work");
                 let t = curve.position(u * 2.);
                 let r = rest_rot * Quat::from_euler(EulerRot::XYZ, -0.4 * wave(u), 0.5, 0.0);
-                (t, r)
+                (t, r, AudioStart::Pick)
             }
             Collectible::Food | Collectible::Seeds => {
                 let a = wave(u);
@@ -255,12 +255,19 @@ fn animate_interaction(mut bones: Query<(&mut Transform, &OnHand, &TimerComp, &C
                         1.7 * a,   // closer to camera
                     );
                 let r = rest_rot * Quat::from_euler(EulerRot::YXZ, 0.15 * a, -0.10 * a, 0.10 * a);
-                (t, r)
+                (t, r, AudioStart::Pop)
             }
             _ => {
                 continue;
             }
         };
+        if timer.0.just_finished() {
+            audio_event.write(audio);
+        } else if timer.0.finished() {
+            transform.translation = rest_pos;
+            transform.rotation = rest_rot;
+            continue;
+        }
 
         transform.translation = translation;
         transform.rotation = rotation;
@@ -333,12 +340,14 @@ fn remove_when_life_depleted(
 fn remove_animation(
     mut commands: Commands,
     mut emoji_event: EventWriter<EmojiBurst>,
+    mut audio_event: EventWriter<AudioStart>,
     time: Res<Time>,
     mut to_remove: Query<(Entity, &mut Transform, &mut RemoveTimer)>,
 ) {
     for (ent, mut trans, mut rm_timer) in &mut to_remove {
         if rm_timer.timer.just_finished() {
             commands.entity(ent).despawn();
+            audio_event.write(AudioStart::PopOut);
             // celebrate
             emoji_event.write(EmojiBurst {
                 velocity: 2000.,

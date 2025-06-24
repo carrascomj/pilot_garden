@@ -10,6 +10,7 @@ use bevy::{
 use menu::GameMenu;
 use std::{f32::consts::TAU, time::Duration};
 
+mod audio;
 mod config;
 mod digging;
 mod dodgy;
@@ -24,6 +25,7 @@ mod surveillance;
 mod the_end;
 mod world_timer;
 
+use audio::AudioPlugin;
 use digging::{DiggingPlugin, Life, Minable, OneSizeCollider};
 use dodgy::{Dodgy, DodgyPlugin};
 use emoji_particles::EmojiPlugin;
@@ -39,6 +41,7 @@ use world_timer::{DayNightPlugin, ShowOnAlarmTime, TimerComp};
 use config::{BUMP_DISTANCE, GROUND_Y, GameState};
 
 use crate::{
+    audio::AudioStart,
     digging::{Diggable, FakeGround, was_removed_by_player},
     emoji_particles::{Secret, SecretRevealed},
     point_raycast::RayBlocker,
@@ -93,6 +96,7 @@ fn main() {
         .add_systems(Update, transit_to_below.run_if(in_state(GameState::Above)))
         // custom game mechanics
         .add_plugins((
+            AudioPlugin,
             DayNightPlugin,
             DiggingPlugin,
             DodgyPlugin,
@@ -586,6 +590,7 @@ fn tag_gltf_on_add(
 
 fn trigger_main_bone_animation(
     player: Single<&Transform, With<Player>>,
+    mut audio_event: EventWriter<AudioStart>,
     mut transforms: Query<(&GlobalTransform, &mut MainBone, &mut TimerComp), Without<Player>>, // all transforms
 ) {
     let transform = player.into_inner();
@@ -598,6 +603,7 @@ fn trigger_main_bone_animation(
             if timer.0.finished() && main_bone.active {
                 timer.0.unpause();
                 timer.0.reset();
+                audio_event.write(AudioStart::Bush);
                 // only trigger the animation once after entering the bump distance
                 main_bone.active = false;
             }

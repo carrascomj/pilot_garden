@@ -26,7 +26,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bevy = { version = "0.16.1", features = ["dynamic_linking", "file_watcher"] }
+bevy = { version = "0.16.1", features = ["dynamic_linking", "mp3", "file_watcher"] }
 bevy-inspector-egui = "0.31.0"
 bevy_mod_inverse_kinematics = "0.9.0"
 fastrand = "=2.3.0"

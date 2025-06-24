@@ -6,6 +6,7 @@ use bevy::prelude::*;
 
 use crate::{
     GameOverRemove,
+    audio::AudioStart,
     config::{GameState, TOOL_ANIM_TIME},
     digging::{Life, Minable},
     killer_arms::find_entity,
@@ -279,6 +280,7 @@ fn move_gnome(
     animations: Res<Animations>,
     mut next_game_state: ResMut<NextState<GameState>>,
     mut light_switch_event: EventWriter<TurnTheLights>,
+    mut audio_event: EventWriter<AudioStart>,
     mut gnomes: Query<(&mut GnomeMachine, &HasAnimationChild, &mut Transform)>,
     mut animation_players: Query<(&mut AnimationPlayer, &mut AnimationTransitions)>,
     player_transform: Query<&Transform, (With<Player>, Without<GnomeMachine>)>,
@@ -386,6 +388,7 @@ fn move_gnome(
                 // a . b = cos(ɑ)
                 let dot = fwd_norm.dot(dir_norm);
                 if dot >= COS_THRESHOLD {
+                    audio_event.write(AudioStart::UhOh);
                     gnome.next_state();
                 }
             }
@@ -429,6 +432,7 @@ fn move_gnome(
                     // wait for  dramatic effect
                     timer.tick(time.delta());
                 } else {
+                    audio_event.write(AudioStart::Goat);
                     // and finally attack the player
                     gnome.next_state()
                 }
@@ -436,6 +440,7 @@ fn move_gnome(
             GnomeState::WaitingToDie(timer) => {
                 timer.tick(time.delta());
                 if timer.finished() {
+                    audio_event.write(AudioStart::GnomeDying);
                     gnome.next_state();
                 }
             }
