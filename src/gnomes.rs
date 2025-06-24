@@ -1,6 +1,6 @@
 //! Mechanics related to Gnomes.
 
-use std::time::Duration;
+use std::{f32::consts::PI, time::Duration};
 
 use bevy::prelude::*;
 
@@ -15,7 +15,7 @@ use crate::{
 };
 
 const GNOME_SIZE: Vec3 = Vec3::new(0.5, 1.5, 0.5);
-const GNOME_VIEW_DISTANCE_POW2: f32 = 100.;
+const GNOME_VIEW_DISTANCE_POW2: f32 = 169.;
 const COS_THRESHOLD: f32 = 0.70710677; // cos(PI / 4)
 const GNOME_VELOCITY: f32 = 25.;
 const ALERTER_POSITIONS: [Vec2; 8] = [
@@ -36,7 +36,7 @@ pub struct GnomePlugin;
 impl Plugin for GnomePlugin {
     fn build(&self, app: &mut App) {
         // above gnomes are persistent over runs
-        app.add_systems(Startup, spawn_gnomes_above)
+        app.add_systems(Startup, spawn_persistent_moves)
             // below gnome are statescoped to Below
             .add_systems(OnEnter(GameState::Below), spawn_gnomes_below)
             .add_systems(
@@ -57,6 +57,7 @@ impl Plugin for GnomePlugin {
 pub enum GnomeState {
     Inactive,
     Active,
+    Deactivated,
     LoadingBanana,
     DroppingBanana(Timer),
     Moving {
@@ -106,6 +107,10 @@ impl GnomeMachine {
                 .expect("Spline failed to resolve."),
             },
             GnomeState::Active => GnomeState::Attacking,
+            GnomeState::Deactivated => GnomeState::WaitingForAttack {
+                timer: Timer::from_seconds(3., TimerMode::Once),
+                already_looking: false,
+            },
             GnomeState::WaitingForAttack { .. } => GnomeState::Attacking,
             GnomeState::WaitingToDie { .. } => GnomeState::Dying,
             GnomeState::Moving { .. } => GnomeState::Active,
@@ -120,6 +125,14 @@ impl GnomeMachine {
                 timer: Timer::from_seconds(3., TimerMode::Once),
                 already_looking: false,
             },
+        };
+        self.is_changed = true;
+    }
+
+    pub fn deactivate(&mut self) {
+        self.state = match self.state {
+            GnomeState::Active => GnomeState::Deactivated,
+            _ => return,
         };
         self.is_changed = true;
     }
@@ -143,7 +156,7 @@ struct HasAnimationChild(Option<Entity>);
 pub struct PlatformMover;
 
 /// The gnomes above are tame and can only die.
-fn spawn_gnomes_above(
+fn spawn_persistent_moves(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut graphs: ResMut<Assets<AnimationGraph>>,
@@ -185,6 +198,7 @@ fn spawn_gnomes_above(
 }
 
 fn spawn_gnomes_below(mut commands: Commands, gnome_asset: Res<GnomeHandle>) {
+    // gnome just below the crops that will run to the studio on sight
     let (x, y, z) = (31., -26.3, -12.2);
     commands.spawn((
         SceneRoot(gnome_asset.handle.clone()),
@@ -199,6 +213,33 @@ fn spawn_gnomes_below(mut commands: Commands, gnome_asset: Res<GnomeHandle>) {
         Minable,
         Life::JustSpawned,
     ));
+    // rest of gnomes, in the studio
+    for (x, z, rot_y) in [
+        (-49.425, 97.876, 2.6),
+        (-62.296, 92.201, PI),
+        (-54.163, 103., 0.),
+        (-69.222, 97.496, 0.),
+        (-45.882, 67.5, 0.),
+        (-39.256, 66.342, 1.6),
+        (-33.2, 66.342, 1.6),
+        (-42.138, 98.156, 1.6),
+        (-35.981, 69.914, 2.3),
+        (-42.138, 98.156, 1.6),
+        (-42.138, 91.192, 1.6),
+        (-31.138, 90.192, 1.9),
+    ] {
+        commands.spawn((
+            SceneRoot(gnome_asset.handle.clone()),
+            GameOverRemove,
+            HasAnimationChild(None),
+            GnomeMachine {
+                state: GnomeState::Active,
+                is_changed: false,
+            },
+            Collider::from_translation(Vec3::new(x, -26.3, z) + Vec3::Y * 0.5, GNOME_SIZE),
+            Transform::from_xyz(x, -26.3, z).with_rotation(Quat::from_rotation_y(rot_y)),
+        ));
+    }
 }
 
 fn setup_animations(

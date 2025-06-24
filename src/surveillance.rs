@@ -387,18 +387,26 @@ fn switch_lights(
     time: Res<Time>,
     mut ligth_switch_reader: EventReader<TurnTheLights>,
     mut lights: Query<(&mut Visibility, &mut SwitchableLight)>,
+    mut gnomes: Query<&mut GnomeMachine>,
     mut ambient_light: ResMut<AmbientLight>,
 ) {
     for (mut light, mut timer) in &mut lights {
         timer.0.tick(time.delta());
         for ev in ligth_switch_reader.read() {
-            let vis = match ev {
-                TurnTheLights::On => Visibility::Visible,
-                TurnTheLights::Off => Visibility::Hidden,
+            let (vis, inactivate) = match ev {
+                TurnTheLights::On => (Visibility::Visible, false),
+                TurnTheLights::Off => (Visibility::Hidden, true),
             };
             timer.0.unpause();
             timer.0.reset();
             *light = vis;
+            if inactivate {
+                // so that the gnomes won't attack the player while
+                // the light is off
+                for mut gnome in &mut gnomes {
+                    gnome.deactivate();
+                }
+            }
         }
         if !timer.0.finished() {
             let u = match *light {
