@@ -21,6 +21,7 @@ mod menu;
 mod player_movement;
 mod point_raycast;
 mod surveillance;
+mod the_end;
 mod world_timer;
 
 use digging::{DiggingPlugin, Life, Minable, OneSizeCollider};
@@ -32,6 +33,7 @@ use killer_arms::{KillerArmPlugin, KillerHead, KillerPoint, KillerTimer};
 use player_movement::{Collider, Player, PlayerPlugin};
 use point_raycast::FirstPersonPickerPlugin;
 use surveillance::SurveillancePlugin;
+use the_end::EndPlugin;
 use world_timer::{DayNightPlugin, ShowOnAlarmTime, TimerComp};
 
 use config::{BUMP_DISTANCE, GROUND_Y, GameState};
@@ -78,6 +80,7 @@ fn main() {
             (setup_colliders_below, setup_below),
         )
         .add_systems(OnExit(GameState::GameOver), remove_on_game_over)
+        .add_systems(OnEnter(GameState::EndScreen), remove_on_game_over)
         .add_systems(
             Update,
             (
@@ -101,6 +104,7 @@ fn main() {
             KillerArmPlugin,
             PlayerPlugin,
             SurveillancePlugin,
+            EndPlugin,
         ))
         .add_plugins(MaterialPlugin::<CapsuleMaterial>::default())
         .run();

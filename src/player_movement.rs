@@ -24,7 +24,8 @@ impl Plugin for PlayerPlugin {
                 Update,
                 (move_player, advance_physics, interpolate_rendered_transform)
                     .run_if(not(in_state(GameState::Menu)))
-                    .run_if(not(in_state(GameState::GameOver))),
+                    .run_if(not(in_state(GameState::GameOver)))
+                    .run_if(not(in_state(GameState::EndScreen))),
             );
     }
 }

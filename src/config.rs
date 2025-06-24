@@ -45,4 +45,5 @@ pub enum GameState {
     GameOver,
     Above,
     Below,
+    EndScreen,
 }
