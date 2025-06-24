@@ -175,6 +175,28 @@ fn setup_surveillance_screenshots(
             screen_trans,
             BigScreen,
         ));
+        // two screens in the safe zone
+        if ab_idx == 1 {
+            let quad_handle = meshes.add(Rectangle::new(3.4, 1.85));
+            let screen_trans = Transform::from_xyz(23.121, 2.4487, 13.8);
+
+            commands.spawn((
+                Mesh3d(quad_handle),
+                MeshMaterial3d(render_materials.to_above[ab_idx].as_ref().unwrap().clone()),
+                screen_trans,
+                BigScreen,
+            ));
+        } else if ab_idx == 3 {
+            let quad_handle = meshes.add(Rectangle::new(3.4, 1.85));
+            let screen_trans = Transform::from_xyz(23.121, 0.041005, 13.8);
+
+            commands.spawn((
+                Mesh3d(quad_handle),
+                MeshMaterial3d(render_materials.to_above[ab_idx].as_ref().unwrap().clone()),
+                screen_trans,
+                BigScreen,
+            ));
+        }
     }
 
     let mut timer = Timer::from_seconds(30., TimerMode::Once);
