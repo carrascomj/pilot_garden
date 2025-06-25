@@ -526,11 +526,11 @@ fn tag_gltf_on_add(
             "fakebush" => {
                 // fake bush that can be removed with the mining pick
                 const BUSH_TRANS: Vec3 = Vec3::new(18., 2., 10.);
-                const SIZE: Vec3 = Vec3::new(1.0, 2.0, 1.0);
+                const SIZE: Vec3 = Vec3::new(1.0, 4.0, 1.0);
                 commands.entity(entity).insert((
                     Minable {},
                     Life::JustSpawned,
-                    Collider::from_translation(BUSH_TRANS + Vec3::Y * 0.5, SIZE),
+                    Collider::from_translation(BUSH_TRANS + Vec3::Y * 3., SIZE),
                     Secret,
                 ));
             }
