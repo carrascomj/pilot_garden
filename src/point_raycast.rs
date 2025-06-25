@@ -481,9 +481,8 @@ struct DropTool {
 }
 
 fn leave_tools_proper(
-    mut commands: Commands,
     mut ev: EventReader<DropTool>,
-    mut tool_query: Query<(&mut Transform, &ChildOf, &mut OnHand, &mut Collectible)>,
+    mut tool_query: Query<(&mut Transform, &mut OnHand, &mut Collectible)>,
 ) {
     for DropTool {
         tool,
@@ -491,8 +490,7 @@ fn leave_tools_proper(
         usage,
     } in ev.read()
     {
-        if let Ok((mut trans, parent, mut on_hand, mut collectible)) = tool_query.get_mut(*tool) {
-            commands.entity(parent.0).remove_children(&[*tool]);
+        if let Ok((mut trans, mut on_hand, mut collectible)) = tool_query.get_mut(*tool) {
             trans.translation = drop_position.with_y(1.);
             on_hand.active = false;
             match collectible.as_ref() {
