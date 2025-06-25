@@ -47,7 +47,8 @@ impl Plugin for GnomePlugin {
             )
             .add_systems(
                 Update,
-                (setup_animations, move_gnome).run_if(not(in_state(GameState::Menu))),
+                (setup_animations, move_gnome, remove_minable_on_die)
+                    .run_if(not(in_state(GameState::Menu))),
             );
     }
 }
@@ -274,6 +275,17 @@ fn setup_animations(
                     .insert(AnimationGraphHandle(animations.graph_handle.clone()));
                 has_animation_child.0 = Some(entity);
             }
+        }
+    }
+}
+/// So that it does not show the crosshair green after it dies.
+fn remove_minable_on_die(
+    mut commands: Commands,
+    gnomes: Query<(Entity, &GnomeMachine), With<Minable>>,
+) {
+    for (entity, gnome) in &gnomes {
+        if gnome.state == GnomeState::Dying {
+            commands.entity(entity).remove::<Minable>();
         }
     }
 }
