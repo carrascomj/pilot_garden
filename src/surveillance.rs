@@ -15,7 +15,8 @@ use bevy::{
 };
 
 use crate::{
-    audio::AudioStart,
+    GameOverRemove,
+    audio::{AudioStart, DrumsToStop},
     config::GameState,
     digging::{Collectible, OnHand},
     gnomes::GnomeMachine,
@@ -334,6 +335,7 @@ fn setup_spotlights_below(mut commands: Commands) {
     let mut timer = Timer::from_seconds(1.0, TimerMode::Once);
     timer.pause();
     commands.spawn((
+        GameOverRemove,
         SpotLight {
             color: Color::srgb(1.0, 1.0, 1.0),
             intensity: 1000_000.0,
@@ -385,12 +387,14 @@ fn show_player_on_screen(
 }
 
 fn switch_lights(
+    mut commands: Commands,
     time: Res<Time>,
     mut ligth_switch_reader: EventReader<TurnTheLights>,
     mut audio_event: EventWriter<AudioStart>,
     mut lights: Query<(&mut Visibility, &mut SwitchableLight)>,
     mut gnomes: Query<&mut GnomeMachine>,
     mut ambient_light: ResMut<AmbientLight>,
+    drums_audio: Query<Entity, With<DrumsToStop>>,
 ) {
     for (mut light, mut timer) in &mut lights {
         timer.0.tick(time.delta());
@@ -406,10 +410,14 @@ fn switch_lights(
                 audio_event.write(AudioStart::SwitchOff);
                 // so that the gnomes won't attack the player while
                 // the light is off
+                audio_event.write(AudioStart::DrumChase);
                 for mut gnome in &mut gnomes {
                     gnome.deactivate();
                 }
             } else {
+                for audio in &drums_audio {
+                    commands.entity(audio).despawn();
+                }
                 audio_event.write(AudioStart::SwitchOn);
             }
         }

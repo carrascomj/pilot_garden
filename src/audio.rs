@@ -16,6 +16,7 @@ impl Plugin for AudioPlugin {
 pub enum AudioStart {
     Bush,
     Cheering,
+    DrumChase,
     GnomeDying,
     Goat,
     Pick,
@@ -33,6 +34,7 @@ pub enum AudioStart {
 struct AudioAssets {
     bush: Handle<AudioSource>,
     cheering: Handle<AudioSource>,
+    drum_chase: Handle<AudioSource>,
     gnome_dying: Handle<AudioSource>,
     goat: Handle<AudioSource>,
     pop: Handle<AudioSource>,
@@ -50,6 +52,7 @@ fn load_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(AudioAssets {
         bush: asset_server.load("sfx/bush.ogg"),
         cheering: asset_server.load("sfx/cheering.ogg"),
+        drum_chase: asset_server.load("sfx/chas_drums.ogg"),
         gnome_dying: asset_server.load("sfx/gnome_dying.ogg"),
         goat: asset_server.load("sfx/goat.ogg"),
         pop: asset_server.load("sfx/pop.mp3"),
@@ -63,6 +66,9 @@ fn load_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
         switch_off: asset_server.load("sfx/switch_off.ogg"),
     });
 }
+
+#[derive(Component)]
+pub struct DrumsToStop;
 
 fn play_audio(
     mut commands: Commands,
@@ -84,6 +90,14 @@ fn play_audio(
             AudioStart::SwitchOn => sound_assets.switch_on.clone(),
             AudioStart::SwitchOff => sound_assets.switch_off.clone(),
             AudioStart::Tock => sound_assets.tock.clone(),
+            AudioStart::DrumChase => {
+                commands.spawn((
+                    AudioPlayer::<AudioSource>(sound_assets.drum_chase.clone()),
+                    PlaybackSettings::LOOP,
+                    DrumsToStop,
+                ));
+                return;
+            }
         };
         commands.spawn((AudioPlayer::<AudioSource>(audio), PlaybackSettings::DESPAWN));
     }

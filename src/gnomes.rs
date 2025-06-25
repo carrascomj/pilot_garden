@@ -37,7 +37,8 @@ pub struct GnomePlugin;
 impl Plugin for GnomePlugin {
     fn build(&self, app: &mut App) {
         // above gnomes are persistent over runs
-        app.add_systems(Startup, spawn_persistent_moves)
+        app.init_resource::<KilledPlayer>()
+            .add_systems(Startup, spawn_persistent_moves)
             // below gnome are statescoped to Below
             .add_systems(OnEnter(GameState::Below), spawn_gnomes_below)
             .add_systems(
@@ -46,9 +47,7 @@ impl Plugin for GnomePlugin {
             )
             .add_systems(
                 Update,
-                (setup_animations, move_gnome)
-                    .run_if(not(in_state(GameState::Menu)))
-                    .run_if(not(in_state(GameState::GameOver))),
+                (setup_animations, move_gnome).run_if(not(in_state(GameState::Menu))),
             );
     }
 }
@@ -198,7 +197,12 @@ fn spawn_persistent_moves(
     }
 }
 
-fn spawn_gnomes_below(mut commands: Commands, gnome_asset: Res<GnomeHandle>) {
+fn spawn_gnomes_below(
+    mut commands: Commands,
+    gnome_asset: Res<GnomeHandle>,
+    mut killed_player: ResMut<KilledPlayer>,
+) {
+    killed_player.0 = false;
     // gnome just below the crops that will run to the studio on sight
     let (x, y, z) = (31., -26.3, -12.2);
     commands.spawn((
@@ -274,11 +278,15 @@ fn setup_animations(
     }
 }
 
+#[derive(Resource, Default)]
+struct KilledPlayer(bool);
+
 /// Control movement of the gnome based on its state.
 fn move_gnome(
     time: Res<Time>,
     animations: Res<Animations>,
     mut next_game_state: ResMut<NextState<GameState>>,
+    mut killed_player: ResMut<KilledPlayer>,
     mut light_switch_event: EventWriter<TurnTheLights>,
     mut audio_event: EventWriter<AudioStart>,
     mut gnomes: Query<(&mut GnomeMachine, &HasAnimationChild, &mut Transform)>,
@@ -355,7 +363,8 @@ fn move_gnome(
                         transform.translation =
                             transform.translation + (dir * delta * GNOME_VELOCITY);
                         transform.look_to(dir, Vec3::Y);
-                    } else {
+                    } else if !killed_player.0 {
+                        killed_player.0 = true;
                         next_game_state.set(GameState::GameOver);
                         break;
                     };

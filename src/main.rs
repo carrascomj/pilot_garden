@@ -231,7 +231,7 @@ fn transit_to_below(
         secret_rev.0 = true;
         // just to see a bit better in the interiors
         // although this will be overriden by the gnomes sometimes
-        ambient_light.brightness = 200.
+        ambient_light.brightness = 200.;
     }
 }
 
@@ -306,7 +306,7 @@ fn setup_shared_meshes(
 }
 
 #[derive(Component)]
-struct GameOverRemove;
+pub struct GameOverRemove;
 
 fn remove_on_game_over(mut commands: Commands, to_rm: Query<Entity, With<GameOverRemove>>) {
     for ent in to_rm {

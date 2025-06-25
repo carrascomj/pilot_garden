@@ -8,8 +8,7 @@ pub const CAMERA_SENSITIVITY: f32 = 0.003;
 pub const PLAYER_HALF_EXTENTS: Vec3 = Vec3::new(0.4, GROUND_Y, 0.4);
 pub const INTERACTION_DISTANCE: f32 = 8.0;
 pub const TOOL_ANIM_TIME: f32 = 0.35;
-// FIXME: set thils to 3.
-pub const SHOVEL_DURABILITY: usize = 100;
+pub const SHOVEL_DURABILITY: usize = 3;
 /// Equivalent to (but const)
 ///
 /// ```norun
