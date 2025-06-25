@@ -3,6 +3,7 @@
 //! This module handles all interactions when clicking the mouse.
 
 use crate::{
+    audio::AudioStart,
     config::{GameState, INTERACTION_DISTANCE},
     digging::{Collectible, Diggable, Life, Minable, OnHand, RemoveTimer, SeedsPlaced},
     gnomes::GnomeMachine,
@@ -428,13 +429,23 @@ fn manage_inventory(
     mut commands: Commands,
     mut inventory: ResMut<Inventory>,
     collectables: Query<(Entity, &mut Collectible, &OnHand)>,
+    mut audio_event: EventWriter<AudioStart>,
 ) {
     if inventory.is_changed() {
         let check_for = match inventory.as_mut() {
             Inventory::Shovel(counter) if (*counter <= 0) => Collectible::Shovel(0), // counter is irrelevant since it is ignore in `PartialEq<Collectible>`
             Inventory::Food(counter) if (*counter <= 0) => Collectible::Food,
             Inventory::Seeds(counter) if (*counter <= 0) => Collectible::Seeds,
-            _ => return,
+            Inventory::None => return,
+            // the counter changed for the shovel we had in hand
+            Inventory::Shovel(counter) if (*counter != 3) => {
+                return;
+            }
+            _ => {
+                // we have picked something
+                audio_event.write(AudioStart::Tock);
+                return;
+            }
         };
         for entity in collectables
             .iter()
