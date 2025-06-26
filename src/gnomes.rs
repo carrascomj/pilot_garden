@@ -161,8 +161,9 @@ fn spawn_persistent_moves(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut graphs: ResMut<Assets<AnimationGraph>>,
+    mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    const GNOME_PATH: &str = "gnome.glb";
+    const GNOME_PATH: &str = "higher_poly_gnome.glb";
     let gnome = asset_server.load(GltfAssetLabel::Scene(0).from_asset(GNOME_PATH));
     commands.insert_resource(GnomeHandle {
         handle: gnome.clone(),
@@ -192,7 +193,13 @@ fn spawn_persistent_moves(
             Life::JustSpawned,
         ));
         if first {
-            ent_comm.insert(PlatformMover);
+            let cub = Cuboid::new(0.8, GNOME_SIZE.y * 0.8, 0.8);
+            ent_comm
+                // the entity will move some invisible meshes on dying, allowing
+                // for the shove
+                .insert(PlatformMover)
+                // invisible mesh to make pointing with the pick more lenient (in the feet)
+                .with_child((Transform::from_xyz(0., 0.35, 0.1), Mesh3d(meshes.add(cub))));
             first = false;
         }
     }
@@ -495,8 +502,10 @@ fn setup_platform_moving(
                         if let Ok((entity, _)) = names.get(ik_bone) {
                             *done = true;
                             commands.entity(entity).with_child((
-                                Mesh3d(meshes.add(Cuboid::new(2.2, 6., 3.))),
-                                Transform::from_translation(Vec3::new(0., -3., 1.2)),
+                                Mesh3d(meshes.add(Cuboid::new(2.2, 6., 2.2))),
+                                Transform::from_translation(Vec3::new(-0.3, -3.4, -1.2)),
+                                // Transform::from_translation(Vec3::new(0., 3., 7.1))
+                                //     .with_scale(Vec3::new(4.623, 2.2, 4.623)),
                                 RayBlocker,
                             ));
                         }
