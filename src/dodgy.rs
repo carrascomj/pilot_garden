@@ -46,7 +46,7 @@ impl Plugin for DodgyPlugin {
 }
 
 #[derive(Resource)]
-struct GaussianNoise {
+pub struct GaussianNoise {
     rng: Rng,
 }
 
@@ -60,7 +60,7 @@ impl Default for GaussianNoise {
 
 impl GaussianNoise {
     /// Marsaglia’s polar method for standard normal.
-    fn sample(&mut self) -> f32 {
+    pub fn sample(&mut self) -> f32 {
         loop {
             // fastrand::f64() gives you a uniform [0, 1) double
             let u1 = 2.0 * self.rng.f32() - 1.0; // uniform (-1,1)

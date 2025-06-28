@@ -25,9 +25,10 @@ impl Plugin for FirstPersonPickerPlugin {
             .add_systems(OnEnter(GameState::Menu), despawn_cross)
             .init_resource::<Inventory>()
             .add_event::<DropTool>()
+            .add_event::<InteractionEvent>()
             .add_systems(
                 Update,
-                cast_player_ray.run_if(not(in_state(GameState::Menu))),
+                (cast_player_ray, send_interaction_events).run_if(not(in_state(GameState::Menu))),
             )
             .add_systems(
                 Update,
@@ -46,6 +47,12 @@ impl Plugin for FirstPersonPickerPlugin {
 
 #[derive(Component)]
 pub struct RayBlocker;
+#[derive(Event)]
+pub enum InteractionEvent {
+    ButtonActivated,
+    SeedsPlaced { hit_position: Vec3 },
+    AudioStart(AudioStart),
+}
 
 /// Check if the `child` has a parent with the correct Component.
 ///
@@ -126,8 +133,7 @@ impl Default for CooldownTimer {
 fn cast_player_ray(
     time: Res<Time>,
     mut commands: Commands,
-    mut seeds_event: EventWriter<SeedsPlaced>,
-    mut button_event: EventWriter<ButtonActivated>,
+    mut interaction: EventWriter<InteractionEvent>,
     mut drop_tool: EventWriter<DropTool>,
     mut inventory: ResMut<Inventory>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
@@ -220,7 +226,7 @@ fn cast_player_ray(
                         Collectible::Food => Inventory::Food(1),
                         Collectible::Seeds => Inventory::Seeds(1),
                         Collectible::Button => {
-                            button_event.write(ButtonActivated);
+                            interaction.write(InteractionEvent::ButtonActivated);
                             return;
                         }
                     };
@@ -247,7 +253,7 @@ fn cast_player_ray(
                     on_hand.active = true;
                     return;
                 }
-                inventory.decrease();
+                inventory.decrease(&mut interaction);
                 // start animation player for hand tool
                 for (_, _, _, on_hand, mut timer) in collectables.iter_mut() {
                     if on_hand.active {
@@ -258,7 +264,7 @@ fn cast_player_ray(
                         continue;
                     }
                     if diggables.contains(*trigger) && inventory.is_seeds() {
-                        seeds_event.write(SeedsPlaced {
+                        interaction.write(InteractionEvent::SeedsPlaced {
                             hit_position: hit.point,
                         });
                         return;
@@ -296,6 +302,33 @@ fn cast_player_ray(
     }
 }
 
+/// Proxy that translated interaction events into concrete events.
+///
+/// This is done this way to avoid passing the limit of arguments in [`cast_player_ray`].
+fn send_interaction_events(
+    mut ev_reader: EventReader<InteractionEvent>,
+    mut seeds: EventWriter<SeedsPlaced>,
+    mut button: EventWriter<ButtonActivated>,
+    mut audio: EventWriter<AudioStart>,
+) {
+    for ev in ev_reader.read() {
+        match ev {
+            InteractionEvent::ButtonActivated => {
+                button.write(ButtonActivated);
+            }
+
+            InteractionEvent::SeedsPlaced { hit_position } => {
+                seeds.write(SeedsPlaced {
+                    hit_position: *hit_position,
+                });
+            }
+            InteractionEvent::AudioStart(audio_start) => {
+                audio.write(audio_start.clone());
+            }
+        };
+    }
+}
+
 /// Only one item can be held at a time.
 ///
 /// This is not perfect since we have to pass state
@@ -316,7 +349,7 @@ impl Default for Inventory {
     }
 }
 impl Inventory {
-    fn decrease(&mut self) {
+    fn decrease(&mut self, ev: &mut EventWriter<InteractionEvent>) {
         match self {
             &mut Inventory::Shovel(ref mut counter)
             | &mut Inventory::Seeds(ref mut counter)
@@ -326,6 +359,15 @@ impl Inventory {
                 }
             }
             _ => (),
+        }
+        // apply sound effects
+        if let &mut Inventory::Shovel(ref mut counter) = self {
+            match counter {
+                0 => {
+                    ev.write(InteractionEvent::AudioStart(AudioStart::ShovelBroken));
+                }
+                _ => (),
+            };
         }
     }
     pub fn is_seeds(&self) -> bool {
@@ -429,23 +471,13 @@ fn manage_inventory(
     mut commands: Commands,
     mut inventory: ResMut<Inventory>,
     collectables: Query<(Entity, &mut Collectible, &OnHand)>,
-    mut audio_event: EventWriter<AudioStart>,
 ) {
     if inventory.is_changed() {
         let check_for = match inventory.as_mut() {
             Inventory::Shovel(counter) if (*counter <= 0) => Collectible::Shovel(0), // counter is irrelevant since it is ignore in `PartialEq<Collectible>`
             Inventory::Food(counter) if (*counter <= 0) => Collectible::Food,
             Inventory::Seeds(counter) if (*counter <= 0) => Collectible::Seeds,
-            Inventory::None => return,
-            // the counter changed for the shovel we had in hand
-            Inventory::Shovel(counter) if (*counter != 3) => {
-                return;
-            }
-            _ => {
-                // we have picked something
-                audio_event.write(AudioStart::Tock);
-                return;
-            }
+            _ => return,
         };
         for entity in collectables
             .iter()

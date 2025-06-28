@@ -2,6 +2,8 @@
 
 use bevy::prelude::*;
 
+use crate::dodgy::GaussianNoise;
+
 pub struct AudioPlugin;
 
 impl Plugin for AudioPlugin {
@@ -12,9 +14,11 @@ impl Plugin for AudioPlugin {
     }
 }
 
-#[derive(Event)]
+#[derive(Clone, Event)]
 pub enum AudioStart {
     Bush,
+    Fence,
+    Rock,
     Cheering,
     DrumChase,
     GnomeDying,
@@ -28,11 +32,14 @@ pub enum AudioStart {
     Tock,
     SwitchOn,
     SwitchOff,
+    ShovelBroken,
 }
 
 #[derive(Resource)]
 struct AudioAssets {
     bush: Handle<AudioSource>,
+    rock: Handle<AudioSource>,
+    fence: Handle<AudioSource>,
     cheering: Handle<AudioSource>,
     drum_chase: Handle<AudioSource>,
     gnome_dying: Handle<AudioSource>,
@@ -46,11 +53,14 @@ struct AudioAssets {
     uhoh: Handle<AudioSource>,
     switch_on: Handle<AudioSource>,
     switch_off: Handle<AudioSource>,
+    shovel_broken: Handle<AudioSource>,
 }
 
 fn load_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(AudioAssets {
         bush: asset_server.load("sfx/bush.ogg"),
+        rock: asset_server.load("sfx/bounce_rock.mp3"),
+        fence: asset_server.load("sfx/bounce_fence.ogg"),
         cheering: asset_server.load("sfx/cheering.ogg"),
         drum_chase: asset_server.load("sfx/chas_drums.ogg"),
         gnome_dying: asset_server.load("sfx/gnome_dying.ogg"),
@@ -64,6 +74,7 @@ fn load_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
         uhoh: asset_server.load("sfx/uhoh.mp3"),
         switch_on: asset_server.load("sfx/switch_on.ogg"),
         switch_off: asset_server.load("sfx/switch_off.ogg"),
+        shovel_broken: asset_server.load("sfx/shovel_break.mp3"),
     });
 }
 
@@ -74,10 +85,13 @@ fn play_audio(
     mut commands: Commands,
     mut audio_triggers: EventReader<AudioStart>,
     sound_assets: Res<AudioAssets>,
+    mut gaussian: ResMut<GaussianNoise>,
 ) {
     for trigger in audio_triggers.read() {
         let audio = match trigger {
             AudioStart::Bush => sound_assets.bush.clone(),
+            AudioStart::Fence => sound_assets.fence.clone(),
+            AudioStart::Rock => sound_assets.rock.clone(),
             AudioStart::Cheering => sound_assets.cheering.clone(),
             AudioStart::GnomeDying => sound_assets.gnome_dying.clone(),
             AudioStart::Goat => sound_assets.goat.clone(),
@@ -90,15 +104,21 @@ fn play_audio(
             AudioStart::SwitchOn => sound_assets.switch_on.clone(),
             AudioStart::SwitchOff => sound_assets.switch_off.clone(),
             AudioStart::Tock => sound_assets.tock.clone(),
+            AudioStart::ShovelBroken => sound_assets.shovel_broken.clone(),
             AudioStart::DrumChase => {
                 commands.spawn((
                     AudioPlayer::<AudioSource>(sound_assets.drum_chase.clone()),
                     PlaybackSettings::LOOP,
                     DrumsToStop,
                 ));
-                return;
+                continue;
             }
         };
-        commands.spawn((AudioPlayer::<AudioSource>(audio), PlaybackSettings::DESPAWN));
+        commands.spawn((
+            AudioPlayer::<AudioSource>(audio),
+            // we cannot set the pitch directly, but we can use the speed
+            // for a similar effect, to avoid being too repetitive
+            PlaybackSettings::DESPAWN.with_speed((gaussian.sample() * 0.3 + 1.).clamp(0.7, 1.4)),
+        ));
     }
 }

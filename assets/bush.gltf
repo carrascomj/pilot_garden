@@ -2877,7 +2877,7 @@
 				171,
 				170
 			],
-			"name":"Armature.004"
+			"name":"bush_armarture.004"
 		},
 		{
 			"name":"Bone.004",
@@ -3060,7 +3060,7 @@
 				183,
 				182
 			],
-			"name":"Armature.005"
+			"name":"bush_armarture.005"
 		},
 		{
 			"name":"Bone.004",
@@ -3271,7 +3271,7 @@
 				198,
 				197
 			],
-			"name":"Armature.006"
+			"name":"bush_armarture.006"
 		},
 		{
 			"name":"Bone.004",
@@ -3482,7 +3482,7 @@
 				213,
 				212
 			],
-			"name":"Armature.007"
+			"name":"bush_armarture.007"
 		},
 		{
 			"name":"Bone",
@@ -3496,7 +3496,7 @@
 			"children":[
 				215
 			],
-			"name":"Armature.066"
+			"name":"bush_armarture.066"
 		},
 		{
 			"name":"Bone",
@@ -3510,7 +3510,7 @@
 			"children":[
 				217
 			],
-			"name":"Armature.067"
+			"name":"bush_armarture.067"
 		},
 		{
 			"name":"Bone.004",
@@ -3721,7 +3721,7 @@
 				232,
 				231
 			],
-			"name":"Armature.008"
+			"name":"bush_armarture.008"
 		},
 		{
 			"name":"Bone.004",
@@ -3932,7 +3932,7 @@
 				247,
 				246
 			],
-			"name":"Armature.009"
+			"name":"bush_armarture.009"
 		},
 		{
 			"name":"Bone.006",
@@ -4077,7 +4077,7 @@
 				257,
 				258
 			],
-			"name":"Armature"
+			"name":"bush_armarture"
 		},
 		{
 			"name":"Bone.006",
@@ -4222,7 +4222,7 @@
 				269,
 				270
 			],
-			"name":"Armature.001"
+			"name":"bush_armarture.001"
 		},
 		{
 			"name":"Bone.006",
@@ -4367,7 +4367,7 @@
 				281,
 				282
 			],
-			"name":"Armature.002"
+			"name":"bush_armarture.002"
 		},
 		{
 			"name":"Bone.006",
@@ -4512,7 +4512,7 @@
 				293,
 				294
 			],
-			"name":"Armature.003"
+			"name":"bush_armarture.003"
 		},
 		{
 			"name":"Bone.004",
@@ -4711,7 +4711,7 @@
 				307,
 				306
 			],
-			"name":"Armature.068"
+			"name":"bush_armarture.068"
 		},
 		{
 			"name":"Bone.004",
@@ -5355,7 +5355,7 @@
 				334,
 				347
 			],
-			"name":"Armature.071"
+			"name":"bush_armarture.071"
 		},
 		{
 			"name":"Bone.006",
@@ -5534,7 +5534,7 @@
 				358,
 				359
 			],
-			"name":"Armature.073"
+			"name":"bush_armarture.073"
 		},
 		{
 			"name":"Bone.006",
@@ -5701,7 +5701,7 @@
 				370,
 				371
 			],
-			"name":"Armature.074"
+			"name":"bush_armarture.074"
 		},
 		{
 			"name":"Bone.006",
@@ -5868,7 +5868,7 @@
 				382,
 				383
 			],
-			"name":"Armature.075"
+			"name":"bush_armarture.075"
 		},
 		{
 			"name":"Bone.006",
@@ -6035,7 +6035,7 @@
 				394,
 				395
 			],
-			"name":"Armature.076"
+			"name":"bush_armarture.076"
 		},
 		{
 			"name":"Bone.006",
@@ -6202,7 +6202,7 @@
 				406,
 				407
 			],
-			"name":"Armature.012"
+			"name":"bush_armarture.012"
 		},
 		{
 			"name":"Bone.004",
@@ -6418,7 +6418,7 @@
 				423,
 				422
 			],
-			"name":"Armature.013"
+			"name":"bush_armarture.013"
 		},
 		{
 			"name":"Bone.006",
@@ -6585,7 +6585,7 @@
 				433,
 				434
 			],
-			"name":"Armature.078"
+			"name":"bush_armarture.078"
 		},
 		{
 			"name":"Bone.004",
@@ -6801,7 +6801,7 @@
 				450,
 				449
 			],
-			"name":"Armature.079"
+			"name":"bush_armarture.079"
 		},
 		{
 			"name":"Bone.004",
@@ -7070,7 +7070,7 @@
 				465,
 				464
 			],
-			"name":"Armature.080"
+			"name":"bush_armarture.080"
 		},
 		{
 			"name":"Bone.009",
@@ -7325,7 +7325,7 @@
 				481,
 				480
 			],
-			"name":"Armature.016"
+			"name":"bush_armarture.016"
 		},
 		{
 			"name":"Bone.006",
@@ -7950,7 +7950,7 @@
 				522,
 				523
 			],
-			"name":"Armature.017"
+			"name":"bush_armarture.017"
 		},
 		{
 			"name":"Bone.006",
@@ -8107,7 +8107,7 @@
 				534,
 				535
 			],
-			"name":"Armature.018"
+			"name":"bush_armarture.018"
 		},
 		{
 			"name":"Bone.004",
@@ -8311,7 +8311,7 @@
 				548,
 				547
 			],
-			"name":"Armature.019"
+			"name":"bush_armarture.019"
 		},
 		{
 			"name":"Bone.004",
@@ -8533,7 +8533,7 @@
 				563,
 				562
 			],
-			"name":"Armature.033"
+			"name":"bush_armarture.033"
 		},
 		{
 			"name":"Bone.006",
@@ -8700,7 +8700,7 @@
 				573,
 				574
 			],
-			"name":"Armature.035"
+			"name":"bush_armarture.035"
 		},
 		{
 			"name":"Bone.006",
@@ -8867,7 +8867,7 @@
 				585,
 				586
 			],
-			"name":"Armature.043"
+			"name":"bush_armarture.043"
 		},
 		{
 			"name":"Bone.004",
@@ -9056,7 +9056,7 @@
 				599,
 				598
 			],
-			"name":"Armature.028"
+			"name":"bush_armarture.028"
 		},
 		{
 			"name":"Bone.006",
@@ -9223,7 +9223,7 @@
 				609,
 				610
 			],
-			"name":"Armature.044"
+			"name":"bush_armarture.044"
 		},
 		{
 			"name":"Bone.004",
@@ -9417,7 +9417,7 @@
 				623,
 				622
 			],
-			"name":"Armature.049"
+			"name":"bush_armarture.049"
 		},
 		{
 			"name":"Bone.006",
@@ -9964,7 +9964,7 @@
 				653,
 				654
 			],
-			"name":"Armature.051"
+			"name":"bush_armarture.051"
 		},
 		{
 			"name":"Bone.006",
@@ -10131,7 +10131,7 @@
 				665,
 				666
 			],
-			"name":"Armature.056"
+			"name":"bush_armarture.056"
 		},
 		{
 			"name":"Bone.006",
@@ -10298,7 +10298,7 @@
 				677,
 				678
 			],
-			"name":"Armature.057"
+			"name":"bush_armarture.057"
 		},
 		{
 			"name":"Bone.006",
@@ -10465,7 +10465,7 @@
 				689,
 				690
 			],
-			"name":"Armature.058"
+			"name":"bush_armarture.058"
 		},
 		{
 			"name":"Bone.004",
@@ -11736,7 +11736,7 @@
 				757,
 				770
 			],
-			"name":"Armature.060"
+			"name":"bush_armarture.060"
 		},
 		{
 			"name":"Bone.004",
@@ -14188,7 +14188,7 @@
 				900,
 				913
 			],
-			"name":"Armature.021",
+			"name":"bush_armarture.021",
 			"translation":[
 				2.1556026935577393,
 				0,
@@ -16229,7 +16229,7 @@
 				168,
 				169
 			],
-			"name":"Armature.004"
+			"name":"bush_armarture.004"
 		},
 		{
 			"inverseBindMatrices":146,
@@ -16245,7 +16245,7 @@
 				179,
 				180
 			],
-			"name":"Armature.005"
+			"name":"bush_armarture.005"
 		},
 		{
 			"inverseBindMatrices":153,
@@ -16264,7 +16264,7 @@
 				195,
 				196
 			],
-			"name":"Armature.006"
+			"name":"bush_armarture.006"
 		},
 		{
 			"inverseBindMatrices":160,
@@ -16283,7 +16283,7 @@
 				210,
 				211
 			],
-			"name":"Armature.007"
+			"name":"bush_armarture.007"
 		},
 		{
 			"inverseBindMatrices":167,
@@ -16302,7 +16302,7 @@
 				229,
 				230
 			],
-			"name":"Armature.008"
+			"name":"bush_armarture.008"
 		},
 		{
 			"inverseBindMatrices":174,
@@ -16321,7 +16321,7 @@
 				244,
 				245
 			],
-			"name":"Armature.009"
+			"name":"bush_armarture.009"
 		},
 		{
 			"inverseBindMatrices":181,
@@ -16337,7 +16337,7 @@
 				253,
 				258
 			],
-			"name":"Armature"
+			"name":"bush_armarture"
 		},
 		{
 			"inverseBindMatrices":188,
@@ -16353,7 +16353,7 @@
 				265,
 				270
 			],
-			"name":"Armature.001"
+			"name":"bush_armarture.001"
 		},
 		{
 			"inverseBindMatrices":195,
@@ -16369,7 +16369,7 @@
 				277,
 				282
 			],
-			"name":"Armature.002"
+			"name":"bush_armarture.002"
 		},
 		{
 			"inverseBindMatrices":202,
@@ -16385,7 +16385,7 @@
 				289,
 				294
 			],
-			"name":"Armature.003"
+			"name":"bush_armarture.003"
 		},
 		{
 			"inverseBindMatrices":209,
@@ -16401,7 +16401,7 @@
 				303,
 				304
 			],
-			"name":"Armature.068"
+			"name":"bush_armarture.068"
 		},
 		{
 			"inverseBindMatrices":216,
@@ -16446,7 +16446,7 @@
 				345,
 				346
 			],
-			"name":"Armature.071"
+			"name":"bush_armarture.071"
 		},
 		{
 			"inverseBindMatrices":223,
@@ -16462,7 +16462,7 @@
 				354,
 				359
 			],
-			"name":"Armature.073"
+			"name":"bush_armarture.073"
 		},
 		{
 			"inverseBindMatrices":230,
@@ -16478,7 +16478,7 @@
 				366,
 				371
 			],
-			"name":"Armature.074"
+			"name":"bush_armarture.074"
 		},
 		{
 			"inverseBindMatrices":237,
@@ -16494,7 +16494,7 @@
 				378,
 				383
 			],
-			"name":"Armature.075"
+			"name":"bush_armarture.075"
 		},
 		{
 			"inverseBindMatrices":244,
@@ -16510,7 +16510,7 @@
 				390,
 				395
 			],
-			"name":"Armature.076"
+			"name":"bush_armarture.076"
 		},
 		{
 			"inverseBindMatrices":251,
@@ -16526,7 +16526,7 @@
 				402,
 				407
 			],
-			"name":"Armature.012"
+			"name":"bush_armarture.012"
 		},
 		{
 			"inverseBindMatrices":258,
@@ -16545,7 +16545,7 @@
 				420,
 				421
 			],
-			"name":"Armature.013"
+			"name":"bush_armarture.013"
 		},
 		{
 			"inverseBindMatrices":265,
@@ -16561,7 +16561,7 @@
 				429,
 				434
 			],
-			"name":"Armature.078"
+			"name":"bush_armarture.078"
 		},
 		{
 			"inverseBindMatrices":272,
@@ -16580,7 +16580,7 @@
 				447,
 				448
 			],
-			"name":"Armature.079"
+			"name":"bush_armarture.079"
 		},
 		{
 			"inverseBindMatrices":279,
@@ -16599,7 +16599,7 @@
 				462,
 				463
 			],
-			"name":"Armature.080"
+			"name":"bush_armarture.080"
 		},
 		{
 			"inverseBindMatrices":286,
@@ -16619,7 +16619,7 @@
 				478,
 				479
 			],
-			"name":"Armature.016"
+			"name":"bush_armarture.016"
 		},
 		{
 			"inverseBindMatrices":293,
@@ -16666,7 +16666,7 @@
 				522,
 				523
 			],
-			"name":"Armature.017"
+			"name":"bush_armarture.017"
 		},
 		{
 			"inverseBindMatrices":300,
@@ -16682,7 +16682,7 @@
 				530,
 				535
 			],
-			"name":"Armature.018"
+			"name":"bush_armarture.018"
 		},
 		{
 			"inverseBindMatrices":307,
@@ -16698,7 +16698,7 @@
 				544,
 				545
 			],
-			"name":"Armature.019"
+			"name":"bush_armarture.019"
 		},
 		{
 			"inverseBindMatrices":314,
@@ -16717,7 +16717,7 @@
 				560,
 				561
 			],
-			"name":"Armature.033"
+			"name":"bush_armarture.033"
 		},
 		{
 			"inverseBindMatrices":321,
@@ -16733,7 +16733,7 @@
 				569,
 				574
 			],
-			"name":"Armature.035"
+			"name":"bush_armarture.035"
 		},
 		{
 			"inverseBindMatrices":328,
@@ -16749,7 +16749,7 @@
 				581,
 				586
 			],
-			"name":"Armature.043"
+			"name":"bush_armarture.043"
 		},
 		{
 			"inverseBindMatrices":335,
@@ -16765,7 +16765,7 @@
 				595,
 				596
 			],
-			"name":"Armature.028"
+			"name":"bush_armarture.028"
 		},
 		{
 			"inverseBindMatrices":342,
@@ -16781,7 +16781,7 @@
 				605,
 				610
 			],
-			"name":"Armature.044"
+			"name":"bush_armarture.044"
 		},
 		{
 			"inverseBindMatrices":349,
@@ -16797,7 +16797,7 @@
 				619,
 				620
 			],
-			"name":"Armature.049"
+			"name":"bush_armarture.049"
 		},
 		{
 			"inverseBindMatrices":356,
@@ -16833,7 +16833,7 @@
 				649,
 				654
 			],
-			"name":"Armature.051"
+			"name":"bush_armarture.051"
 		},
 		{
 			"inverseBindMatrices":363,
@@ -16849,7 +16849,7 @@
 				661,
 				666
 			],
-			"name":"Armature.056"
+			"name":"bush_armarture.056"
 		},
 		{
 			"inverseBindMatrices":370,
@@ -16865,7 +16865,7 @@
 				673,
 				678
 			],
-			"name":"Armature.057"
+			"name":"bush_armarture.057"
 		},
 		{
 			"inverseBindMatrices":377,
@@ -16881,7 +16881,7 @@
 				685,
 				690
 			],
-			"name":"Armature.058"
+			"name":"bush_armarture.058"
 		},
 		{
 			"inverseBindMatrices":384,
@@ -16965,7 +16965,7 @@
 				768,
 				769
 			],
-			"name":"Armature.060"
+			"name":"bush_armarture.060"
 		},
 		{
 			"inverseBindMatrices":391,
@@ -17112,7 +17112,7 @@
 				911,
 				912
 			],
-			"name":"Armature.021"
+			"name":"bush_armarture.021"
 		},
 		{
 			"inverseBindMatrices":64,
@@ -17138,14 +17138,14 @@
 			"joints":[
 				215
 			],
-			"name":"Armature.066"
+			"name":"bush_armarture.066"
 		},
 		{
 			"inverseBindMatrices":456,
 			"joints":[
 				217
 			],
-			"name":"Armature.067"
+			"name":"bush_armarture.067"
 		}
 	],
 	"accessors":[

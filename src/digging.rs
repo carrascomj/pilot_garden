@@ -6,7 +6,7 @@ use crate::audio::AudioStart;
 use crate::config::{GameState, REST_ROT, SEEDS_ROT, SHOVEL_DURABILITY, TOOL_ANIM_TIME};
 use crate::emoji_particles::{EmojiBurst, SecretRevealed};
 use crate::gnomes::{GnomeMachine, PlatformMover};
-use crate::player_movement::Collider;
+use crate::player_movement::{Collider, Player};
 use crate::world_timer::TimerComp;
 use bevy::prelude::*;
 use bevy::scene::SceneInstanceReady;
@@ -139,12 +139,10 @@ fn add_colliders_to_diggables(
         ));
     }
 }
-
 #[derive(Event)]
 pub struct SeedsPlaced {
     pub hit_position: Vec3,
 }
-
 #[derive(Component)]
 #[require(TimerComp::from_elapsed(TOOL_ANIM_TIME))]
 pub struct OnHand {
@@ -173,28 +171,48 @@ fn add_collectibles(
                 commands
                     .entity(entity)
                     .insert(Collectible::Shovel(SHOVEL_DURABILITY))
-                    .insert(OnHand::new());
+                    .insert(OnHand::new())
+                    .observe(audio_item_picked);
             }
             "MiningPick" => {
                 commands
                     .entity(entity)
                     .insert(Collectible::MiningPick)
-                    .insert(OnHand::new());
+                    .insert(OnHand::new())
+                    .observe(audio_item_picked);
             }
             "Food" => {
                 commands
                     .entity(entity)
                     .insert(Collectible::Food)
-                    .insert(OnHand::new());
+                    .insert(OnHand::new())
+                    .observe(audio_item_picked);
             }
             "Seeds" => {
                 commands
                     .entity(entity)
                     .insert(Collectible::Seeds)
-                    .insert(OnHand::new());
+                    .insert(OnHand::new())
+                    .observe(audio_item_picked);
             }
             _ => (),
         }
+    }
+}
+
+/// Emit audio on picking an item (inserted unto the player).
+fn audio_item_picked(
+    on_insert: Trigger<OnInsert, ChildOf>,
+    mut audio_event: EventWriter<AudioStart>,
+    child: Query<&ChildOf>,
+    player_query: Query<Entity, With<Player>>,
+) {
+    if child
+        .get(on_insert.target())
+        .map(|e| player_query.get(e.0))
+        .is_ok()
+    {
+        audio_event.write(AudioStart::Tock);
     }
 }
 

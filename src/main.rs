@@ -492,12 +492,39 @@ struct MainBone {
     active: bool,
 }
 
+/// Help function to check if a parent in the hierarchy has a name.
+fn find_recursive_parent<'a>(
+    root: Entity,
+    look_for_name: &'a [&'a str],
+    child_of: Query<&ChildOf>,
+    names: Query<(Entity, &Name)>,
+) -> Result<&'a str, ()> {
+    if let Ok(child) = child_of.get(root) {
+        if let Ok((ent, name)) = names.get(child.0) {
+            for this_name in look_for_name {
+                if name.as_str().starts_with(this_name) {
+                    // base case
+                    return Ok(this_name);
+                } else if let Ok(found) = find_recursive_parent(ent, look_for_name, child_of, names)
+                {
+                    return Ok(found);
+                }
+            }
+        }
+        return Err(());
+    } else {
+        return Err(());
+    }
+}
+
 /// Tag specific GLTF entities based with components based on their names
 /// after they load.
 fn tag_gltf_on_add(
     mut commands: Commands,
     new_names: Populated<(Entity, &Name, &Transform), Added<Name>>,
     mut meshes: ResMut<Assets<Mesh>>,
+    child_of: Query<&ChildOf>,
+    names: Query<(Entity, &Name)>,
 ) {
     for (entity, name, transform) in new_names.iter() {
         // cases that happen at most once on a scene are exactly matched
@@ -556,11 +583,16 @@ fn tag_gltf_on_add(
         // multiple prefixed added entities at the same time
         // will get these components added
         if name.as_str().starts_with("main") {
+            let parent_name =
+                find_recursive_parent(entity, &["bush", "rig_fence", "rock"], child_of, names);
             // little wiggle on distance with player
-            commands.entity(entity).insert(MainBone {
-                rest_rot: transform.rotation,
-                active: true,
-            });
+            commands.entity(entity).insert((
+                MainBone {
+                    rest_rot: transform.rotation,
+                    active: true,
+                },
+                BoneAudio::new(parent_name),
+            ));
         } else if name.as_str().starts_with("one_sized") {
             commands.entity(entity).insert(OneSizeCollider);
         } else if name.as_str().starts_with("crop_ground") {
@@ -588,13 +620,48 @@ fn tag_gltf_on_add(
     }
 }
 
+#[derive(Component)]
+enum BoneAudio {
+    Bush,
+    Rock,
+    Fence,
+}
+
+impl BoneAudio {
+    fn new(may_name: Result<&str, ()>) -> Self {
+        match may_name {
+            Ok(name) => {
+                if name.starts_with("bush") {
+                    Self::Bush
+                } else if name.starts_with("rig_fence") {
+                    Self::Fence
+                } else {
+                    Self::Rock
+                }
+            }
+            _ => Self::Rock,
+        }
+    }
+
+    fn to_audio(&self) -> AudioStart {
+        match self {
+            BoneAudio::Bush => AudioStart::Bush,
+            BoneAudio::Rock => AudioStart::Rock,
+            BoneAudio::Fence => AudioStart::Fence,
+        }
+    }
+}
+
 fn trigger_main_bone_animation(
     player: Single<&Transform, With<Player>>,
     mut audio_event: EventWriter<AudioStart>,
-    mut transforms: Query<(&GlobalTransform, &mut MainBone, &mut TimerComp), Without<Player>>, // all transforms
+    mut transforms: Query<
+        (&GlobalTransform, &mut MainBone, &mut TimerComp, &BoneAudio),
+        Without<Player>,
+    >, // all transforms
 ) {
     let transform = player.into_inner();
-    for (parent_t, mut main_bone, mut timer) in &mut transforms {
+    for (parent_t, mut main_bone, mut timer, bone_audio) in &mut transforms {
         if parent_t
             .translation()
             .distance_squared(transform.translation)
@@ -603,7 +670,7 @@ fn trigger_main_bone_animation(
             if timer.0.finished() && main_bone.active {
                 timer.0.unpause();
                 timer.0.reset();
-                audio_event.write(AudioStart::Bush);
+                audio_event.write(bone_audio.to_audio());
                 // only trigger the animation once after entering the bump distance
                 main_bone.active = false;
             }
