@@ -564,7 +564,7 @@ fn activate_gizmos(
         *inventory = Inventory::None;
     }
     if keyboard_input.just_pressed(KeyCode::KeyM) {
-        next_state.set(GameState::Menu);
+        next_state.set(GameState::GameOver);
     }
 }
 

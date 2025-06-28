@@ -2,7 +2,7 @@
 
 use bevy::prelude::*;
 
-use crate::dodgy::GaussianNoise;
+use crate::{GameOverRemove, dodgy::GaussianNoise};
 
 pub struct AudioPlugin;
 
@@ -114,6 +114,7 @@ fn play_audio(
                     AudioPlayer::<AudioSource>(sound_assets.drum_chase.clone()),
                     PlaybackSettings::LOOP,
                     DrumsToStop,
+                    GameOverRemove,
                 ));
                 continue;
             }

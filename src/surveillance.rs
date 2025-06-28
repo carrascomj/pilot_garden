@@ -36,7 +36,8 @@ impl Plugin for SurveillancePlugin {
                 OnEnter(GameState::Below),
                 (setup_surveillance_camera, setup_spotlights_below),
             )
-            .add_systems(OnExit(GameState::Menu), setup_surveillance_screenshots)
+            .add_systems(Startup, setup_surveillance_screenshots)
+            .add_systems(OnEnter(GameState::Above), link_screens_to_above)
             .add_systems(Update, take_snapshots.run_if(in_state(GameState::Above)))
             .add_systems(
                 Update,
@@ -48,7 +49,7 @@ impl Plugin for SurveillancePlugin {
 /// Marker for big screens in the studio that can be changed
 /// to focus themselves when pressing the button.
 #[derive(Component)]
-pub struct BigScreen;
+pub struct BigScreen(usize);
 /// Marker for the camera that is looking at the button, only
 /// active after the player presses the button.
 #[derive(Component)]
@@ -77,20 +78,16 @@ fn setup_surveillance_screenshots(
     mut images: ResMut<Assets<Image>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut render_materials: ResMut<RenderMaterials>,
 ) {
-    for (cam_pos, cam_target, screen_rot, screen_size, screen_pos, ab_idx) in [
+    let mut to_above: [Option<Handle<StandardMaterial>>; 4] = [None, None, None, None];
+    for (screen_rot, screen_size, screen_pos, ab_idx) in [
         (
-            Vec3::new(10., 30., 1.),
-            Vec3::new(10., -30., 1.),
             Quat::from_rotation_z(0.),
             [20.8, 10.7],
             Vec3::new(-78.3, -17., 80.59),
             0,
         ),
         (
-            Vec3::new(-9.699, 5., 6.4251),
-            Vec3::new(23., 3., -4.),
             Quat::from_rotation_x(FRAC_PI_4),
             [20.8, 5.2],
             Vec3::new(-76.457, -8.63, 80.59),
@@ -98,8 +95,6 @@ fn setup_surveillance_screenshots(
             1,
         ),
         (
-            Vec3::new(18., 5., 7.),
-            Vec3::new(27., 1., 8.2),
             Quat::from_rotation_y(-FRAC_PI_4),
             [7.17, 10.],
             Vec3::new(-75.6, -17., 66.4),
@@ -107,8 +102,6 @@ fn setup_surveillance_screenshots(
             2,
         ),
         (
-            Vec3::new(17., 5.2, 11.),
-            Vec3::new(24.202, 1., -6.52),
             Quat::from_rotation_y(FRAC_PI_4),
             [7.17, 10.],
             Vec3::new(-75.6, -17., 94.5),
@@ -141,41 +134,24 @@ fn setup_surveillance_screenshots(
             | TextureUsages::COPY_DST
             | TextureUsages::RENDER_ATTACHMENT;
         let image_handle = images.add(image);
-        if render_materials.to_above[ab_idx].is_none() {
-            render_materials.to_above[ab_idx] = Some(materials.add(StandardMaterial {
-                base_color_texture: Some(image_handle.clone()),
-                reflectance: 0.02,
-                unlit: true,
-                ..default()
-            }));
-        }
-        let mut cam_trans = Transform::from_translation(cam_pos).looking_at(cam_target, Vec3::Y);
-        if ab_idx == 0 {
-            cam_trans.rotate(Quat::from_rotation_y(FRAC_PI_2));
-        }
-        commands.spawn((
-            Snapshoter,
-            Camera3d::default(),
-            Exposure { ev100: 4. },
-            Camera {
-                target: image_handle.clone().into(),
-                clear_color: Color::WHITE.into(),
-                is_active: false,
-                ..default()
-            },
-            cam_trans,
-        ));
+        to_above[ab_idx] = Some(materials.add(StandardMaterial {
+            base_color_texture: Some(image_handle.clone()),
+            reflectance: 0.02,
+            unlit: true,
+            ..default()
+        }));
         // spawn the plane with the material containing the texture
         let screen = Rectangle::new(screen_size[0], screen_size[1]);
         let quad_handle = meshes.add(screen);
         let screen_trans = Transform::from_translation(screen_pos)
             .with_rotation(Quat::from_rotation_y(FRAC_PI_2) * screen_rot);
+        let material = to_above[ab_idx].as_ref().unwrap();
 
         commands.spawn((
             Mesh3d(quad_handle),
-            MeshMaterial3d(render_materials.to_above[ab_idx].as_ref().unwrap().clone()),
+            MeshMaterial3d(material.clone()),
             screen_trans,
-            BigScreen,
+            BigScreen(ab_idx),
         ));
         // two screens in the safe zone
         if ab_idx == 1 {
@@ -184,9 +160,9 @@ fn setup_surveillance_screenshots(
 
             commands.spawn((
                 Mesh3d(quad_handle),
-                MeshMaterial3d(render_materials.to_above[ab_idx].as_ref().unwrap().clone()),
+                MeshMaterial3d(material.clone()),
                 screen_trans,
-                BigScreen,
+                BigScreen(ab_idx),
             ));
         } else if ab_idx == 3 {
             let quad_handle = meshes.add(Rectangle::new(3.4, 1.85));
@@ -194,9 +170,9 @@ fn setup_surveillance_screenshots(
 
             commands.spawn((
                 Mesh3d(quad_handle),
-                MeshMaterial3d(render_materials.to_above[ab_idx].as_ref().unwrap().clone()),
+                MeshMaterial3d(material.clone()),
                 screen_trans,
-                BigScreen,
+                BigScreen(ab_idx),
             ));
         }
     }
@@ -208,6 +184,67 @@ fn setup_surveillance_screenshots(
         no_snapshot: timer,
         take_timer,
     });
+    commands.insert_resource(RenderMaterials {
+        to_button: None,
+        to_above: to_above,
+    });
+}
+
+/// Link the rendering target from the above [`Snapshoter`] cameras
+/// to the screens.
+///
+/// Will run only if the snapshot cameras do not exist (on Startup and after
+/// going to below, which removes them).
+fn link_screens_to_above(
+    mut commands: Commands,
+    render_materials: Res<RenderMaterials>,
+    screens: Query<(Entity, &BigScreen)>,
+    materials: Res<Assets<StandardMaterial>>,
+    curr_snapshoters: Query<&Snapshoter>,
+) {
+    const SNAP: [(Vec3, Vec3); 4] = [
+        (Vec3::new(10., 30., 1.), Vec3::new(10., -30., 1.)),
+        (Vec3::new(-9.699, 5., 6.4251), Vec3::new(23., 3., -4.)),
+        (Vec3::new(18., 5., 7.), Vec3::new(27., 1., 8.2)),
+        (Vec3::new(17., 5.2, 11.), Vec3::new(24.202, 1., -6.52)),
+    ];
+    if !curr_snapshoters.is_empty() {
+        return;
+    }
+    let mut cam_not_setup = [true, true, true, true];
+    for (screen_ent, BigScreen(idx)) in screens {
+        let material = render_materials.to_above[*idx].as_ref().unwrap();
+        commands
+            .entity(screen_ent)
+            .insert(MeshMaterial3d(material.clone()));
+
+        if cam_not_setup[*idx] {
+            cam_not_setup[*idx] = false;
+            let Some(Some(image_handle)) = materials
+                .get(material)
+                .map(|m| m.base_color_texture.clone())
+            else {
+                return;
+            };
+            let mut cam_trans =
+                Transform::from_translation(SNAP[*idx].0).looking_at(SNAP[*idx].1, Vec3::Y);
+            if *idx == 0 {
+                cam_trans.rotate(Quat::from_rotation_y(FRAC_PI_2));
+            }
+            commands.spawn((
+                Snapshoter,
+                Camera3d::default(),
+                Exposure { ev100: 4. },
+                Camera {
+                    target: image_handle.into(),
+                    clear_color: Color::WHITE.into(),
+                    is_active: false,
+                    ..default()
+                },
+                cam_trans,
+            ));
+        }
+    }
 }
 
 /// This is the camera that looks at the button and replaces
@@ -255,6 +292,7 @@ fn setup_surveillance_camera(
         }));
     }
     commands.spawn((
+        GameOverRemove,
         Camera3d::default(),
         Camera {
             target: image_handle.clone().into(),
@@ -268,6 +306,7 @@ fn setup_surveillance_camera(
 
     // the button light
     commands.spawn((
+        GameOverRemove,
         SpotLight {
             color: Color::Srgba(Srgba {
                 red: 0.957,
@@ -290,6 +329,7 @@ fn setup_surveillance_camera(
         ..default()
     }));
     commands.spawn((
+        GameOverRemove,
         Transform::from_xyz(-65., -23.8, 80.),
         Collectible::Button,
         OnHand::new(),
@@ -330,7 +370,8 @@ fn take_snapshots(
 
 #[derive(Component)]
 pub struct SwitchableLight(Timer);
-/// Switchable
+
+/// Switchable.
 fn setup_spotlights_below(mut commands: Commands) {
     let mut timer = Timer::from_seconds(1.0, TimerMode::Once);
     timer.pause();

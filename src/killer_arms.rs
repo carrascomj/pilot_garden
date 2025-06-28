@@ -63,7 +63,11 @@ fn spawn_killing_arm(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut killerarm_handle: Local<Option<Handle<Scene>>>,
+    currrent_killers: Query<&KillerArm>,
 ) {
+    if !currrent_killers.is_empty() {
+        return;
+    }
     // hold a handle to the streelight scene between calls
     if killerarm_handle.is_none() {
         *killerarm_handle =
