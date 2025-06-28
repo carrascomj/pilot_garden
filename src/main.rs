@@ -537,7 +537,7 @@ fn tag_gltf_on_add(
                 let dur = Duration::from_secs_f32(1.);
                 let mut laser_timer = TimerComp(Timer::new(dur, TimerMode::Once));
                 laser_timer.0.pause();
-                let dur = Duration::from_secs_f32(5.);
+                let dur = Duration::from_secs_f32(10.);
                 let mut killer_timer = KillerTimer {
                     timer: Timer::new(dur, TimerMode::Once),
                     can_kill: false,

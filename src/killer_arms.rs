@@ -4,6 +4,7 @@ use bevy::{ecs::query::QueryFilter, prelude::*};
 use bevy_mod_inverse_kinematics::{IkConstraint, InverseKinematicsPlugin};
 
 use crate::{
+    audio::AudioStart,
     config::GameState,
     dodgy::Dodgy,
     player_movement::Player,
@@ -376,8 +377,10 @@ fn spawn_killing_beam(
 fn move_to(
     mut commands: Commands,
     mut next_state: ResMut<NextState<GameState>>,
+    mut audio_event: EventWriter<AudioStart>,
     time: Res<Time>,
     mut transforms: Populated<(Entity, &mut Transform, &MoveTo)>,
+    mut n_sounds: Local<usize>,
 ) {
     let delta = time.delta_secs();
     const BEAM_SPEED: f32 = 20.;
@@ -393,8 +396,13 @@ fn move_to(
         }
         if distance < 0.08 {
             trans.scale += delta * 25.;
+            *n_sounds += 1;
+            if *n_sounds < 12 {
+                audio_event.write(AudioStart::Laser);
+            }
         }
         if trans.scale.x > 85. {
+            *n_sounds = 0;
             commands.entity(entity).despawn();
         }
     }

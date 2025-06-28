@@ -101,7 +101,7 @@ fn spawn_sun(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut streetlight_handle: Local<Option<Handle<Scene>>>,
 ) {
-    let day_secs = 180.;
+    let day_secs = 160.;
     let init_pos = Vec3::new(10.0, 4.0, 30.);
     let sun_radius = 100.;
     let light = DirectionalLight {
@@ -136,7 +136,7 @@ fn spawn_sun(
         StateScoped(GameState::Above),
         NightTimer,
         TimerComp(Timer::new(
-            Duration::from_secs((day_secs * 0.44) as u64),
+            Duration::from_secs((day_secs * 0.52) as u64),
             TimerMode::Once,
         )),
     ));
@@ -257,28 +257,29 @@ fn orbit_sun(
 
     *trans = Transform::from_translation(new_tr).looking_at(Vec3::X * 10.0, Vec3::NEG_Y);
 
-    // - 0.00-0.60  → “day”    (bright light-red)
-    // - 0.60-0.85  → “sunset” (orange)
-    // - 0.85-1.00  → “night”  (deep blue)
+    // - 0.00-0.60 -> “day”    (bright light-red)
+    // - 0.60-0.85 -> “sunset” (orange)
+    // - 0.85-1.00 -> “night”  (deep blue)
 
     const MIDDAY_COLOUR: Vec3 = Vec3::new(0.8, 0.20, 0.40); // bright light-red
     const DAWN_COLOUR: Vec3 = Vec3::new(1.0, 0., 0.); // blue
 
     const DAY_END: f32 = 0.44; // 60 % of the timer → end of “day”
     const SUNSET_END: f32 = 0.52; // 85 % of the timer → end of “sunset”
+    const DAY_UP: f32 = 0.95; // the sun comes up again
 
     // [PI, 0] and [0, -PI] -> [0, 1] and [1, 0]
     let polar_u = ((PI - if theta < 0. { -theta } else { theta }) / PI).clamp(0., 1.);
     let theta_phi = (1. + (theta % (2. * PI)).cos()) / 2.;
     // rep.0 = format!("u=[{u:.2}]; Light=[{:.2}]", light.illuminance);
 
-    // Day -> hold the bright-red colour (or lerp to something else if you like)
+    // Day -> hold the bright-red colour
     let rgb = DAWN_COLOUR.lerp(MIDDAY_COLOUR, polar_u);
     light.color = Color::linear_rgb(rgb.x, rgb.y, rgb.z);
 
     // Dim the light at night so shadows disappear
     // full strength by day, 25 % at sunset,  5 % at night.
-    let light_multiplier = if u < DAY_END {
+    let light_multiplier = if u < DAY_END || u > DAY_UP {
         1.0
     } else {
         1.0 - 0.95 * (u - DAY_END) / (SUNSET_END - DAY_END)
@@ -288,7 +289,7 @@ fn orbit_sun(
     // rotate skybox
     if let Ok(mut sky) = skybox.single_mut() {
         sky.rotation = Quat::from_rotation_x(theta);
-        sky.brightness = if u < DAY_END {
+        sky.brightness = if u < DAY_END || u > DAY_UP {
             1500. * theta_phi + 20.
         } else {
             (1500. * theta_phi * light_multiplier).max(20.)
