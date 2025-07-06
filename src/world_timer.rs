@@ -37,6 +37,10 @@ impl Plugin for DayNightPlugin {
                     .run_if(in_state(GameState::Above)),
             )
             .add_systems(
+                Update,
+                (oscillate_spotlight, oscillate_pointlight).run_if(not(in_state(GameState::Menu))),
+            )
+            .add_systems(
                 PreUpdate,
                 advance_timers.run_if(not(in_state(GameState::Menu))),
             );
@@ -381,6 +385,36 @@ fn lit_lamps(
                     vis.toggle_visible_hidden();
                 }
             }
+        }
+    }
+}
+
+fn oscillate_spotlight(time: Res<Time>, mut lamps: Query<(&Visibility, &mut SpotLight)>) {
+    const SPEED_HZ: f32 = 0.5;
+    const BASE: f32 = 30.;
+    for (vis, mut light) in &mut lamps {
+        match vis {
+            Visibility::Visible => {
+                let elapsed = (time.elapsed_secs() * std::f32::consts::TAU * SPEED_HZ).sin();
+                light.range = BASE + 2. * elapsed;
+                light.intensity = 200_000. + 30_000. * elapsed;
+            }
+            _ => continue,
+        }
+    }
+}
+
+fn oscillate_pointlight(time: Res<Time>, mut lamps: Query<(&Visibility, &mut PointLight)>) {
+    const SPEED_HZ: f32 = 0.5;
+    const BASE: f32 = 10.;
+    for (vis, mut light) in &mut lamps {
+        match vis {
+            Visibility::Visible => {
+                let elapsed = (time.elapsed_secs() * std::f32::consts::TAU * SPEED_HZ).sin();
+                light.range = BASE + elapsed;
+                light.intensity = 200_000. + 10_000. * elapsed;
+            }
+            _ => continue,
         }
     }
 }
