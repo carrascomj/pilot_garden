@@ -74,8 +74,8 @@ fn setup_emoji_particles(
         .iter()
         .map(|path| asset_server.load(*path))
         .collect();
-    let floor_2d = window.resolution.physical_height() as f32;
-    let walls_2d = window.resolution.physical_width() as f32;
+    let floor_2d = window.resolution.height() as f32;
+    let walls_2d = window.resolution.width() as f32;
 
     commands.spawn_batch((0..100).enumerate().map(move |(i, _)| {
         let sprite_handle = emoji_handles[i % 11].clone();
@@ -124,11 +124,11 @@ fn resolve_particle_physics(
     const GRAVITY2D: f32 = 1000.;
     const FRICTION: f32 = 2.;
     let dt = time.delta_secs();
-    let height = window.resolution.physical_height();
-    let floor = -((height / 2) as f32) - 64.;
+    let height = window.resolution.height();
+    let floor = -(height / 2.) - 64.;
     let ceiling = -floor;
-    let width = window.resolution.physical_width();
-    let left_wall = -((width / 2) as f32);
+    let width = window.resolution.width();
+    let left_wall = -(width / 2.);
     let right_wall = left_wall * 0.55;
     let left_wall = left_wall * 0.85;
     for (mut trans, mut velocity) in &mut query {

@@ -19,16 +19,28 @@ pub struct GameMenu;
 const BUTTON_COLOR: Color = Color::srgb(1.0, 0.3, 0.9); // cyber pink
 const HOVER_COLOR: Color = Color::srgb(0.3, 1.0, 0.9); // cyber blue
 const PRESSED_COLOR: Color = Color::srgb(1.0, 1.0, 1.0); // white blue
+const RESOLUTIONS: &[(u32, u32)] = &[
+    (1280, 720),  // 16:9
+    (1024, 768),  // 4:3
+    (1600, 900),  // 16:9
+    (1280, 960),  // 4:3
+    (1920, 1080), // 16:9
+    (1600, 1200), // 4:3
+    (2560, 1440), // 16:9
+    (1920, 1440), // 4:3
+];
 
 impl Plugin for GameMenu {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(GameState::Menu), spawn_game_menu)
+        app.add_event::<ApplyResolution>()
+            .add_systems(
+                OnEnter(GameState::Menu),
+                (spawn_game_menu, spawn_settings_menu),
+            )
             .add_systems(Startup, spawn_exit_menu)
             .add_systems(Update, button_system)
-            .add_systems(
-                Update,
-                toggle_exit_menu.run_if(not(in_state(GameState::Menu))),
-            )
+            .add_systems(Update, toggle_escape_menus)
+            .add_systems(Update, apply_resolution.run_if(in_state(GameState::Menu)))
             // will run even after GameState menu since it has to play the animation for awakening
             .add_systems(Last, update_time)
             .add_plugins(UiMaterialPlugin::<HibernationMaterial>::default());
@@ -40,6 +52,9 @@ impl Plugin for GameMenu {
 pub enum ButtonAction {
     StartGame,
     ShowSettings,
+    SettingsPrev,
+    SettingsNext,
+    SettingsAccept,
     Exit,
 }
 
@@ -48,6 +63,14 @@ pub enum ButtonAction {
 struct StartMenu;
 #[derive(Component)]
 struct RemoveOnStart;
+
+/// Settings menu markers to change the window resolution.
+#[derive(Component)]
+struct SettingsMenu;
+#[derive(Component)]
+struct ResolutionText;
+#[derive(Component)]
+struct SelectedResolution(usize);
 
 fn spawn_game_menu(
     mut commands: Commands,
@@ -301,6 +324,9 @@ fn button_system(
     mut window: Single<&mut Window>,
     mut ui_materials: ResMut<Assets<HibernationMaterial>>,
     to_rm_on_start: Query<Entity, With<RemoveOnStart>>,
+    mut settings_q: Query<(Entity, &mut SelectedResolution, &mut Visibility), With<SettingsMenu>>,
+    mut res_text_q: Query<&mut Text, With<ResolutionText>>,
+    mut apply_res: EventWriter<ApplyResolution>,
 ) {
     for (interaction, mut box_shadow, mut border_color, children, action) in
         interaction_query.iter_mut()
@@ -325,10 +351,44 @@ fn button_system(
                             commands.entity(to_rm).despawn();
                         }
                     }
+                    ButtonAction::ShowSettings => {
+                        if let Ok((_, _, mut vis)) = settings_q.single_mut() {
+                            vis.toggle_visible_hidden();
+                        }
+                    }
+                    ButtonAction::SettingsPrev => {
+                        if let Ok((_, mut sel, _)) = settings_q.single_mut() {
+                            let len = RESOLUTIONS.len();
+                            sel.0 = (sel.0 + len - 1) % len;
+                            if let Ok(mut t) = res_text_q.single_mut() {
+                                *t = Text::new(format!(
+                                    "{}x{}",
+                                    RESOLUTIONS[sel.0].0, RESOLUTIONS[sel.0].1
+                                ));
+                            }
+                        }
+                    }
+                    ButtonAction::SettingsNext => {
+                        if let Ok((_, mut sel, _)) = settings_q.single_mut() {
+                            sel.0 = (sel.0 + 1) % RESOLUTIONS.len();
+                            if let Ok(mut t) = res_text_q.single_mut() {
+                                *t = Text::new(format!(
+                                    "{}x{}",
+                                    RESOLUTIONS[sel.0].0, RESOLUTIONS[sel.0].1
+                                ));
+                            }
+                        }
+                    }
+                    ButtonAction::SettingsAccept => {
+                        if let Ok((_, sel, mut vis)) = settings_q.single_mut() {
+                            let (w, h) = RESOLUTIONS[sel.0];
+                            apply_res.write(ApplyResolution(UVec2::new(w, h)));
+                            *vis = Visibility::Hidden;
+                        }
+                    }
                     ButtonAction::Exit => {
                         app_exit_events.write(AppExit::Success);
                     }
-                    _ => (),
                 }
             }
             Interaction::Hovered => {
@@ -438,17 +498,232 @@ fn spawn_exit_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 }
 
-fn toggle_exit_menu(
+/// Show/hide Exit menu or, if inside Settings menu, hide it.
+fn toggle_escape_menus(
     mut window: Single<&mut Window>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut exit_menu: Single<&mut Visibility, With<ExitEscMenu>>,
+    mut exit_menu_query: Query<&mut Visibility, (With<ExitEscMenu>, Without<SettingsMenu>)>,
+    mut settings_menu_query: Query<&mut Visibility, (With<SettingsMenu>, Without<ExitEscMenu>)>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Escape) {
-        let cursor_visible = match **exit_menu {
-            Visibility::Visible => false,
-            _ => true,
-        };
-        window.cursor_options.visible = cursor_visible;
-        exit_menu.toggle_visible_hidden();
+        for mut exit_menu in &mut exit_menu_query {
+            let cursor_visible = match *exit_menu {
+                Visibility::Visible => false,
+                _ => true,
+            };
+            window.cursor_options.visible = cursor_visible;
+            exit_menu.toggle_visible_hidden();
+        }
+        for mut settings_menu in &mut settings_menu_query {
+            if let Visibility::Visible = *settings_menu {
+                *settings_menu = Visibility::Hidden;
+                return;
+            }
+        }
+    }
+}
+
+/// Settings menu to choose the resolution.
+fn spawn_settings_menu(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    window: Single<&Window>,
+) {
+    // pick current / nearest-by-height
+    let (w, h) = (
+        window.resolution.width() as u32,
+        window.resolution.height() as u32,
+    );
+    let mut idx = 0usize;
+    let mut best = u32::MAX;
+    for (i, &(rw, rh)) in RESOLUTIONS.iter().enumerate() {
+        if rw == w && rh == h {
+            idx = i;
+            break;
+        }
+        let d = rh.abs_diff(h);
+        if d < best {
+            best = d;
+            idx = i;
+        }
+    }
+    let label = format!("{}x{}", RESOLUTIONS[idx].0, RESOLUTIONS[idx].1);
+
+    commands.spawn((
+        Node {
+            display: Display::Flex,
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            ..default()
+        },
+        SettingsMenu,
+        SelectedResolution(idx),
+        Visibility::Hidden,
+        BackgroundColor(Color::BLACK.with_alpha(0.8)),
+        StateScoped(GameState::Menu),
+        ZIndex(10),
+        children![(
+            Node {
+                width: Val::Px(360.0),
+                height: Val::Px(200.0),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::SpaceEvenly,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            BorderColor(BUTTON_COLOR.with_alpha(0.8)),
+            Outline {
+                width: Val::Px(6.0),
+                offset: Val::Px(6.0),
+                color: BUTTON_COLOR
+            },
+            BoxShadow::new(
+                BUTTON_COLOR.with_alpha(0.2),
+                Val::Percent(0.),
+                Val::Percent(0.),
+                Val::Percent(3.0),
+                Val::Px(3.0),
+            ),
+            children![
+                (
+                    // row 1: <  [current res]  >
+                    Node {
+                        width: Val::Px(300.0),
+                        height: Val::Px(65.0),
+                        justify_content: JustifyContent::SpaceBetween,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    children![
+                        (
+                            Button,
+                            ButtonAction::SettingsPrev,
+                            Node {
+                                width: Val::Px(65.0),
+                                height: Val::Px(65.0),
+                                border: UiRect::all(Val::Px(5.0)),
+                                justify_content: JustifyContent::Center,
+                                align_items: AlignItems::Center,
+                                ..default()
+                            },
+                            BorderColor(BUTTON_COLOR),
+                            BoxShadow::new(
+                                BUTTON_COLOR.with_alpha(0.2),
+                                Val::Percent(0.),
+                                Val::Percent(0.),
+                                Val::Percent(3.0),
+                                Val::Px(3.0),
+                            ),
+                            children![(
+                                Text::new("<"),
+                                TextFont {
+                                    font: asset_server.load("fonts/Silkscreen-Bold.ttf"),
+                                    font_size: 33.0,
+                                    ..default()
+                                },
+                                TextColor(BUTTON_COLOR),
+                                TextShadow::default(),
+                            )]
+                        ),
+                        (
+                            Node {
+                                width: Val::Px(160.0),
+                                justify_content: JustifyContent::Center,
+                                align_items: AlignItems::Center,
+                                ..default()
+                            },
+                            children![(
+                                Text::new(label),
+                                TextFont {
+                                    font: asset_server.load("fonts/Silkscreen-Bold.ttf"),
+                                    font_size: 28.0,
+                                    ..default()
+                                },
+                                TextLayout {
+                                    justify: JustifyText::Center,
+                                    ..default()
+                                },
+                                TextColor(BUTTON_COLOR),
+                                TextShadow::default(),
+                                ResolutionText,
+                            )]
+                        ),
+                        (
+                            Button,
+                            ButtonAction::SettingsNext,
+                            Node {
+                                width: Val::Px(65.0),
+                                height: Val::Px(65.0),
+                                border: UiRect::all(Val::Px(5.0)),
+                                justify_content: JustifyContent::Center,
+                                align_items: AlignItems::Center,
+                                ..default()
+                            },
+                            BorderColor(BUTTON_COLOR),
+                            BoxShadow::new(
+                                BUTTON_COLOR.with_alpha(0.2),
+                                Val::Percent(0.),
+                                Val::Percent(0.),
+                                Val::Percent(3.0),
+                                Val::Px(3.0),
+                            ),
+                            children![(
+                                Text::new(">"),
+                                TextFont {
+                                    font: asset_server.load("fonts/Silkscreen-Bold.ttf"),
+                                    font_size: 33.0,
+                                    ..default()
+                                },
+                                TextColor(BUTTON_COLOR),
+                                TextShadow::default(),
+                            )]
+                        )
+                    ]
+                ),
+                (
+                    // row 2: ACCEPT (smaller)
+                    Button,
+                    ButtonAction::SettingsAccept,
+                    Node {
+                        width: Val::Px(150.0),
+                        height: Val::Px(45.0),
+                        border: UiRect::all(Val::Px(5.0)),
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    BorderColor(BUTTON_COLOR),
+                    BoxShadow::new(
+                        BUTTON_COLOR.with_alpha(0.2),
+                        Val::Percent(0.),
+                        Val::Percent(0.),
+                        Val::Percent(3.0),
+                        Val::Px(3.0),
+                    ),
+                    children![(
+                        Text::new("ACCEPT"),
+                        TextFont {
+                            font: asset_server.load("fonts/Silkscreen-Bold.ttf"),
+                            font_size: 28.0,
+                            ..default()
+                        },
+                        TextColor(BUTTON_COLOR),
+                        TextShadow::default(),
+                    )]
+                )
+            ]
+        )],
+    ));
+}
+
+#[derive(Event)]
+struct ApplyResolution(pub UVec2);
+
+// FIXME: this freezes the screen for some reason.
+fn apply_resolution(mut evr: EventReader<ApplyResolution>, mut window: Single<&mut Window>) {
+    for e in evr.read() {
+        window.resolution.set(e.0.x as f32, e.0.y as f32);
     }
 }

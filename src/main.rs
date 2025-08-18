@@ -718,36 +718,4 @@ impl Material for CapsuleMaterial {
         descriptor.primitive.cull_mode = None; // draw both faces
         Ok(())
     }
-
-    fn vertex_shader() -> ShaderRef {
-        ShaderRef::Default
-    }
-
-    fn opaque_render_method(&self) -> bevy::pbr::OpaqueRendererMethod {
-        bevy::pbr::OpaqueRendererMethod::Forward
-    }
-
-    fn depth_bias(&self) -> f32 {
-        0.0
-    }
-
-    fn reads_view_transmission_texture(&self) -> bool {
-        false
-    }
-
-    fn prepass_vertex_shader() -> ShaderRef {
-        ShaderRef::Default
-    }
-
-    fn prepass_fragment_shader() -> ShaderRef {
-        ShaderRef::Default
-    }
-
-    fn deferred_vertex_shader() -> ShaderRef {
-        ShaderRef::Default
-    }
-
-    fn deferred_fragment_shader() -> ShaderRef {
-        ShaderRef::Default
-    }
 }
