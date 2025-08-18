@@ -140,7 +140,7 @@ fn spawn_sun(
         StateScoped(GameState::Above),
         NightTimer,
         TimerComp(Timer::new(
-            Duration::from_secs((day_secs * 0.52) as u64),
+            Duration::from_secs((day_secs * 0.48) as u64),
             TimerMode::Once,
         )),
     ));
@@ -242,15 +242,16 @@ fn orbit_sun(
     let Ok((mut trans, sun, timer, children)) = sun_query.single_mut() else {
         return;
     };
+
     let mut light = None;
     for child in children {
         light = lights.get_mut(*child).ok();
         break;
     }
-
     let Some(mut light) = light else {
         return;
     };
+
     let u = timer.0.fraction();
     let theta = sun.start_angle + u * (sun.end_angle - sun.start_angle);
 
@@ -261,43 +262,33 @@ fn orbit_sun(
 
     *trans = Transform::from_translation(new_tr).looking_at(Vec3::X * 10.0, Vec3::NEG_Y);
 
-    // - 0.00-0.60 -> “day”    (bright light-red)
-    // - 0.60-0.85 -> “sunset” (orange)
-    // - 0.85-1.00 -> “night”  (deep blue)
+    // Colours
+    const MIDDAY_COLOUR: Vec3 = Vec3::new(0.8, 0.20, 0.40);
+    const DAWN_COLOUR: Vec3 = Vec3::new(1.0, 0.0, 0.0);
 
-    const MIDDAY_COLOUR: Vec3 = Vec3::new(0.8, 0.20, 0.40); // bright light-red
-    const DAWN_COLOUR: Vec3 = Vec3::new(1.0, 0., 0.); // blue
+    // Elevation-based daylight factor: 0 at/under horizon, ~1 shortly above.
+    // This compresses dusk/dawn to a short, natural band around the horizon (fixes “stays red too long” and “slow start”).
+    let e = (new_y / sun.rad).clamp(-1.0, 1.0); // sin(elevation)
+    let t = ((e - 0.0) / (0.2 - 0.0)).clamp(0.0, 1.0); // twilight band ≈ e∈[0.0, 0.2]
+    let day_factor = t * t * (3.0 - 2.0 * t);
 
-    const DAY_END: f32 = 0.44; // 60 % of the timer → end of “day”
-    const SUNSET_END: f32 = 0.52; // 85 % of the timer → end of “sunset”
-    const DAY_UP: f32 = 0.95; // the sun comes up again
-
-    // [PI, 0] and [0, -PI] -> [0, 1] and [1, 0]
-    let polar_u = ((PI - if theta < 0. { -theta } else { theta }) / PI).clamp(0., 1.);
-    let theta_phi = (1. + (theta % (2. * PI)).cos()) / 2.;
-    // rep.0 = format!("u=[{u:.2}]; Light=[{:.2}]", light.illuminance);
-
-    // Day -> hold the bright-red colour
-    let rgb = DAWN_COLOUR.lerp(MIDDAY_COLOUR, polar_u);
+    // Colour + intensity from elevation
+    let rgb = DAWN_COLOUR.lerp(MIDDAY_COLOUR, day_factor);
     light.color = Color::linear_rgb(rgb.x, rgb.y, rgb.z);
 
-    // Dim the light at night so shadows disappear
-    // full strength by day, 25 % at sunset,  5 % at night.
-    let light_multiplier = if u < DAY_END || u > DAY_UP {
-        1.0
-    } else {
-        1.0 - 0.95 * (u - DAY_END) / (SUNSET_END - DAY_END)
-    };
+    // Full by day, 5% at night, smooth around horizon.
+    let light_multiplier = 0.05 + 0.95 * day_factor;
     light.illuminance = 10_000.0 * light_multiplier;
+    // rep.0 = format!("u=[{u:.2}]; Light=[{:.2}]", light.illuminance);
 
-    // rotate skybox
+    // Skybox rotation + brightness (wrap-safe)
     if let Ok(mut sky) = skybox.single_mut() {
         sky.rotation = Quat::from_rotation_x(theta);
-        sky.brightness = if u < DAY_END || u > DAY_UP {
-            1500. * theta_phi + 20.
-        } else {
-            (1500. * theta_phi * light_multiplier).max(20.)
-        };
+
+        let theta_wrapped = theta.rem_euclid(2.0 * PI);
+        let theta_phi = 0.5 * (1.0 + theta_wrapped.cos());
+
+        sky.brightness = 20.0 + 1500.0 * theta_phi * light_multiplier;
     }
 }
 
