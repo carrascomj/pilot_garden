@@ -507,6 +507,10 @@ fn toggle_escape_menus(
 ) {
     if keyboard_input.just_pressed(KeyCode::Escape) {
         for mut exit_menu in &mut exit_menu_query {
+            if window.cursor_options.visible && *exit_menu == Visibility::Hidden {
+                // in a menu already, do not trigger Esc menu
+                break;
+            }
             let cursor_visible = match *exit_menu {
                 Visibility::Visible => false,
                 _ => true,
