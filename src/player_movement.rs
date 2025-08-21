@@ -1,5 +1,6 @@
-use crate::config::{
-    CAMERA_SENSITIVITY, GRAVITY, GameState, PLAYER_HALF_EXTENTS, SPEED, START_POS,
+use crate::{
+    config::{CAMERA_SENSITIVITY, GRAVITY, GameState, PLAYER_HALF_EXTENTS, SPEED, START_POS},
+    input_mapping::InputActions,
 };
 use bevy::{
     core_pipeline::{Skybox, tonemapping::Tonemapping},
@@ -153,7 +154,7 @@ fn reset_player(
 /// Player movement system.
 fn move_player(
     accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
+    pressed: Res<InputActions>,
     player: Single<(&mut Transform, &mut AccumulatedInput, &mut Velocity), With<Player>>,
 ) {
     let (mut transform, mut input, mut velocity) = player.into_inner();
@@ -184,17 +185,16 @@ fn move_player(
 
         transform.rotation = Quat::from_euler(EulerRot::YXZ, yaw, pitch, roll);
     };
-
-    if keyboard_input.pressed(KeyCode::KeyW) {
+    if pressed.up {
         input.0 += transform.rotation * Vec3::NEG_Z;
     }
-    if keyboard_input.pressed(KeyCode::KeyS) {
+    if pressed.down {
         input.0 -= transform.rotation * Vec3::NEG_Z;
     }
-    if keyboard_input.pressed(KeyCode::KeyA) {
+    if pressed.left {
         input.0 -= transform.rotation * Vec3::X;
     }
-    if keyboard_input.pressed(KeyCode::KeyD) {
+    if pressed.right {
         input.0 += transform.rotation * Vec3::X;
     }
 
@@ -204,7 +204,7 @@ fn move_player(
     velocity.0.z = input_normalized.z;
     let grounded = velocity.0.y.abs() < 0.00001;
 
-    if keyboard_input.just_pressed(KeyCode::Space) && grounded {
+    if pressed.jump && grounded {
         velocity.y += 50.0;
     }
 }

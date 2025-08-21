@@ -7,6 +7,7 @@ use crate::{
     config::{GameState, INTERACTION_DISTANCE},
     digging::{Collectible, Diggable, Life, Minable, OnHand, RemoveTimer, SeedsPlaced},
     gnomes::GnomeMachine,
+    input_mapping::InputActions,
     player_movement::{Collider, Player},
     surveillance::ButtonActivated,
     world_timer::TimerComp,
@@ -136,7 +137,7 @@ fn cast_player_ray(
     mut interaction: EventWriter<InteractionEvent>,
     mut drop_tool: EventWriter<DropTool>,
     mut inventory: ResMut<Inventory>,
-    mouse_button_input: Res<ButtonInput<MouseButton>>,
+    pressed: Res<InputActions>,
     mut ray_cast: MeshRayCast,
     player_query: Single<(&GlobalTransform, Entity, Option<&Children>), With<Player>>,
     mut cross_q: Single<
@@ -213,7 +214,7 @@ fn cast_player_ray(
             cross_q.2.color = Color::srgba(0.3, 1.0, 0.4, 0.7);
             cross_q.3.height = Val::Vh(2.);
             cross_q.3.width = Val::Vh(2.);
-            if mouse_button_input.just_pressed(MouseButton::Left) {
+            if pressed.pick {
                 if let Ok((ent, mut transform, collectible, mut on_hand, _)) =
                     collectables.get_mut(*trigger)
                 {
@@ -490,8 +491,8 @@ fn manage_inventory(
     }
 }
 
-fn eat_food(mut inventory: ResMut<Inventory>, mouse_button_input: Res<ButtonInput<MouseButton>>) {
-    if mouse_button_input.just_pressed(MouseButton::Left) {
+fn eat_food(mut inventory: ResMut<Inventory>, pressed: Res<InputActions>) {
+    if pressed.pick {
         match inventory.as_mut() {
             &mut Inventory::Food(ref mut counter) => {
                 if *counter > 0 {

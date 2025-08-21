@@ -17,6 +17,7 @@ mod dodgy;
 mod emoji_particles;
 mod game_over;
 mod gnomes;
+mod input_mapping;
 mod killer_arms;
 mod menu;
 mod player_movement;
@@ -31,6 +32,7 @@ use dodgy::{Dodgy, DodgyPlugin};
 use emoji_particles::EmojiPlugin;
 use game_over::GameOver;
 use gnomes::GnomePlugin;
+use input_mapping::InputMappingPlugin;
 use killer_arms::{KillerArmPlugin, KillerHead, KillerPoint, KillerTimer};
 use player_movement::{Collider, Player, PlayerPlugin};
 use point_raycast::FirstPersonPickerPlugin;
@@ -105,6 +107,7 @@ fn main() {
             GameMenu,
             GameOver,
             GnomePlugin,
+            InputMappingPlugin,
             KillerArmPlugin,
             PlayerPlugin,
             SurveillancePlugin,
