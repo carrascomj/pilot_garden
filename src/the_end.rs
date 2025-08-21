@@ -2,7 +2,7 @@
 
 use bevy::prelude::*;
 
-use crate::{config::GameState, player_movement::Player};
+use crate::{config::GameState, menu::Winner, player_movement::Player};
 
 pub struct EndPlugin;
 
@@ -21,6 +21,7 @@ impl Plugin for EndPlugin {
 /// Check if the player has tried to traspassed the exit door.
 fn check_for_escape(
     mut next_state: ResMut<NextState<GameState>>,
+    mut winner: ResMut<Winner>,
     player: Single<&Transform, With<Player>>,
 ) {
     {}
@@ -31,6 +32,7 @@ fn check_for_escape(
     // cherry picked
     if distance < 6. {
         next_state.set(GameState::EndScreen);
+        winner.0 = true;
     }
 }
 

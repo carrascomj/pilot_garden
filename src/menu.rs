@@ -33,6 +33,7 @@ const RESOLUTIONS: &[(u32, u32)] = &[
 impl Plugin for GameMenu {
     fn build(&self, app: &mut App) {
         app.add_event::<ApplyResolution>()
+            .init_resource::<Winner>()
             .add_systems(
                 OnEnter(GameState::Menu),
                 (spawn_game_menu, spawn_settings_menu),
@@ -72,10 +73,14 @@ struct ResolutionText;
 #[derive(Component)]
 struct SelectedResolution(usize);
 
+#[derive(Resource, Default)]
+pub struct Winner(pub bool);
+
 fn spawn_game_menu(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut ui_materials: ResMut<Assets<HibernationMaterial>>,
+    winner: Res<Winner>,
     mut secret_rev: ResMut<SecretRevealed>,
     mut window: Single<&mut Window>,
     collectibles: Query<Entity, (With<Collectible>, With<OnHand>)>,
@@ -236,13 +241,21 @@ fn spawn_game_menu(
                     bottom: Val::Vh(1.0),
                     ..default()
                 },
-                Text::new("WINNER: FALSE"),
+                Text::new(if winner.0 {
+                    "WINNER: TRUE"
+                } else {
+                    "WINNER: FALSE"
+                }),
                 TextFont {
                     font: asset_server.load("fonts/Silkscreen-Bold.ttf"),
                     font_size: 15.0,
                     ..default()
                 },
-                TextColor(Color::srgb(0.9, 0.2, 0.2)),
+                TextColor(if winner.0 {
+                    Color::srgb(0.2, 0.9, 0.2)
+                } else {
+                    Color::srgb(0.9, 0.2, 0.2)
+                }),
                 TextShadow::default(),
                 RemoveOnStart,
             ),
