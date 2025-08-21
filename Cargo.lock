@@ -144,7 +144,6 @@ dependencies = [
  "bevy-inspector-egui",
  "bevy_mod_inverse_kinematics",
  "fastrand",
- "log",
  "smallvec",
 ]
 
