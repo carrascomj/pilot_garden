@@ -2,11 +2,13 @@
 
 use bevy::{ecs::query::QueryFilter, prelude::*};
 use bevy_mod_inverse_kinematics::{IkConstraint, InverseKinematicsPlugin};
+use std::collections::HashMap;
 
 use crate::{
     audio::AudioStart,
     config::GameState,
     dodgy::Dodgy,
+    laser::{LaserBeam, LaserBeamSource, LaserMaterial, setup_laser_mesh},
     player_movement::Player,
     point_raycast::UIDot,
     world_timer::{ShowOnAlarmTime, TimerComp},
@@ -24,6 +26,7 @@ impl Plugin for KillerArmPlugin {
                     setup_inverse_kinematics,
                     point_at_player,
                     activate_lasers,
+                    spawn_laser_meshes,
                     draw_lasers,
                     show_dots_lasers,
                     spawn_killing_beam,
@@ -224,70 +227,127 @@ struct ShowDots {
     bottom: bool,
 }
 
+fn spawn_laser_meshes(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<LaserMaterial>>,
+    killer_heads: Query<Entity, Added<KillerHead>>,
+) {
+    for head in &killer_heads {
+        setup_laser_mesh(&mut commands, &mut meshes, &mut materials, head);
+    }
+}
+
 fn draw_lasers(
-    mut gizmos: Gizmos,
     mut ray_cast: MeshRayCast,
     mut ev_beam_order: EventWriter<BeamOrder>,
     mut show_dots: ResMut<ShowDots>,
     time: Res<Time>,
     mut killer_points: Query<
-        (&GlobalTransform, &TimerComp, &mut KillerTimer),
+        (Entity, &GlobalTransform, &TimerComp, &mut KillerTimer),
         (With<KillerHead>, Without<Player>),
     >,
-    player: Single<(Entity, &Transform), (With<Player>, Without<KillerPoint>)>,
+    player: Single<(Entity, &GlobalTransform), (With<Player>, Without<KillerPoint>)>,
+    mut beams: Query<(
+        Entity,
+        &LaserBeamSource,
+        &mut Transform,
+        &mut Visibility,
+        &MeshMaterial3d<LaserMaterial>,
+    ), With<LaserBeam>>,
+    mut materials: ResMut<Assets<LaserMaterial>>,
 ) {
     let (mut right, mut left, mut bottom) = (false, false, false);
     // guard for only setting one beam to kill the player (and avoid setting GameOver more than once)
     let mut will_kill = false;
-    for (trans, timer, mut killer_timer) in &mut killer_points {
-        if timer.0.finished() && killer_timer.can_kill {
-            let ray_pos = trans.translation();
-            let start = ray_pos;
-            let end = player.1.translation;
-            let ray_dir = (end - start).normalize();
+    let player_translation = player.1.translation();
+    let mut beam_for_head: HashMap<Entity, Entity> = HashMap::new();
+    for (beam_entity, source, _, _, _) in beams.iter() {
+        beam_for_head.insert(source.head, beam_entity);
+    }
 
-            let ray = Ray3d::new(ray_pos, Dir3::new(ray_dir).unwrap());
-            if let Some((target_entity, hit)) = ray_cast
-                .cast_ray(ray, &MeshRayCastSettings::default().always_early_exit())
-                .first()
-            {
-                let mult = if *target_entity == player.0 { 1.5 } else { 0. };
-                gizmos.line(
-                    ray_pos,
-                    hit.point - mult * Vec3::Y,
-                    // MAGENTA,
-                    Color::BLACK.mix(&MAGENTA, killer_timer.timer.fraction()),
-                );
-                if killer_timer.timer.just_finished() && killer_timer.can_kill {
-                    let is_player = player.0 == *target_entity;
-                    ev_beam_order.write(BeamOrder {
-                        from: ray_pos,
-                        to: hit.point,
-                        will_kill: is_player && !will_kill,
-                    });
-                    if is_player {
-                        will_kill = true;
-                    }
-                    killer_timer.can_kill = false;
+    for (head_entity, trans, timer, mut killer_timer) in &mut killer_points {
+        let Some(beam_entity) = beam_for_head.get(&head_entity) else {
+            continue;
+        };
+        let Ok((_, _, mut beam_transform, mut beam_visibility, beam_material)) =
+            beams.get_mut(*beam_entity)
+        else {
+            continue;
+        };
+
+        if !timer.0.finished() || !killer_timer.can_kill {
+            *beam_visibility = Visibility::Hidden;
+            if !killer_timer.timer.finished() {
+                killer_timer.timer.tick(time.delta());
+            }
+            continue;
+        }
+
+        let ray_pos = trans.translation();
+        let start = ray_pos;
+        let end = player_translation;
+        let ray_dir = (end - start).normalize_or_zero();
+        if ray_dir == Vec3::ZERO {
+            *beam_visibility = Visibility::Hidden;
+            if !killer_timer.timer.finished() {
+                killer_timer.timer.tick(time.delta());
+            }
+            continue;
+        }
+
+        let ray = Ray3d::new(ray_pos, Dir3::new(ray_dir).unwrap());
+        if let Some((target_entity, hit)) = ray_cast
+            .cast_ray(ray, &MeshRayCastSettings::default().always_early_exit())
+            .first()
+        {
+            let beam_dir = (hit.point - ray_pos).normalize_or_zero();
+            if beam_dir == Vec3::ZERO {
+                *beam_visibility = Visibility::Hidden;
+                if !killer_timer.timer.finished() {
+                    killer_timer.timer.tick(time.delta());
                 }
-                // check if UI should show direction of lasers
-                if *target_entity == player.0 {
-                    // direction *from* the player towards the killer head
-                    let from_player = start - end;
-                    let v2 = Vec2::new(from_player.x, from_player.z).normalize();
+                continue;
+            }
+            let beam_len = hit.distance.max(0.01);
+            beam_transform.translation = ray_pos;
+            beam_transform.rotation = Quat::from_rotation_arc(Vec3::Y, beam_dir);
+            beam_transform.scale = Vec3::new(1.0, beam_len, 1.0);
+            *beam_visibility = Visibility::Visible;
+            if let Some(material) = materials.get_mut(&beam_material.0) {
+                material.fraction = killer_timer.timer.fraction();
+            }
+            if killer_timer.timer.just_finished() && killer_timer.can_kill {
+                let is_player = player.0 == *target_entity;
+                ev_beam_order.write(BeamOrder {
+                    from: ray_pos,
+                    to: hit.point,
+                    will_kill: is_player && !will_kill,
+                });
+                if is_player {
+                    will_kill = true;
+                }
+                killer_timer.can_kill = false;
+            }
+            // check if UI should show direction of lasers
+            if *target_entity == player.0 {
+                // direction *from* the player towards the killer head
+                let from_player = start - end;
+                let v2 = Vec2::new(from_player.x, from_player.z).normalize();
 
-                    // choose the dominant axis
-                    if v2.x.abs() >= v2.y.abs() {
-                        if v2.x > 0.0 {
-                            right = true;
-                        } else {
-                            left = true;
-                        }
-                    } else if v2.y < 0.0 {
-                        bottom = true;
+                // choose the dominant axis
+                if v2.x.abs() >= v2.y.abs() {
+                    if v2.x > 0.0 {
+                        right = true;
+                    } else {
+                        left = true;
                     }
+                } else if v2.y < 0.0 {
+                    bottom = true;
                 }
             }
+        } else {
+            *beam_visibility = Visibility::Hidden;
         }
         if !killer_timer.timer.finished() {
             killer_timer.timer.tick(time.delta());

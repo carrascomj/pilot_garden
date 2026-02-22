@@ -19,6 +19,7 @@ mod game_over;
 mod gnomes;
 mod input_mapping;
 mod killer_arms;
+mod laser;
 mod menu;
 mod player_movement;
 mod point_raycast;
@@ -34,6 +35,7 @@ use game_over::GameOver;
 use gnomes::GnomePlugin;
 use input_mapping::InputMappingPlugin;
 use killer_arms::{KillerArmPlugin, KillerHead, KillerPoint, KillerTimer};
+use laser::LaserPlugin;
 use player_movement::{Collider, Player, PlayerPlugin};
 use point_raycast::FirstPersonPickerPlugin;
 use surveillance::SurveillancePlugin;
@@ -109,6 +111,7 @@ fn main() {
             GnomePlugin,
             InputMappingPlugin,
             KillerArmPlugin,
+            LaserPlugin,
             PlayerPlugin,
             SurveillancePlugin,
             EndPlugin,
