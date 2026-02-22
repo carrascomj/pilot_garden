@@ -60,6 +60,7 @@ struct KillerArm;
 struct MoveTo {
     to: Vec3,
     will_kill: bool,
+    sounds_played: u8,
 }
 
 fn spawn_killing_arm(
@@ -434,6 +435,7 @@ fn spawn_killing_beam(
             MoveTo {
                 to: *to,
                 will_kill: *will_kill,
+                sounds_played: 0,
             },
             Mesh3d(handles.0.as_ref().expect("works").clone()),
             MeshMaterial3d(handles.1.as_ref().expect("works").clone()),
@@ -446,12 +448,11 @@ fn move_to(
     mut next_state: ResMut<NextState<GameState>>,
     mut audio_event: EventWriter<AudioStart>,
     time: Res<Time>,
-    mut transforms: Populated<(Entity, &mut Transform, &MoveTo)>,
-    mut n_sounds: Local<usize>,
+    mut transforms: Populated<(Entity, &mut Transform, &mut MoveTo)>,
 ) {
     let delta = time.delta_secs();
     const BEAM_SPEED: f32 = 20.;
-    for (entity, mut trans, move_to) in transforms.iter_mut() {
+    for (entity, mut trans, mut move_to) in transforms.iter_mut() {
         let dir = trans.translation - move_to.to;
         let distance = dir.length_squared();
         if distance > 0.05 {
@@ -463,13 +464,12 @@ fn move_to(
         }
         if distance < 0.08 {
             trans.scale += delta * 25.;
-            *n_sounds += 1;
-            if *n_sounds < 12 {
+            if move_to.sounds_played < 2 {
                 audio_event.write(AudioStart::Laser);
+                move_to.sounds_played += 1;
             }
         }
         if trans.scale.x > 85. {
-            *n_sounds = 0;
             commands.entity(entity).despawn();
         }
     }
