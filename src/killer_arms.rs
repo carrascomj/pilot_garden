@@ -248,13 +248,16 @@ fn draw_lasers(
         (With<KillerHead>, Without<Player>),
     >,
     player: Single<(Entity, &GlobalTransform), (With<Player>, Without<KillerPoint>)>,
-    mut beams: Query<(
-        Entity,
-        &LaserBeamSource,
-        &mut Transform,
-        &mut Visibility,
-        &MeshMaterial3d<LaserMaterial>,
-    ), With<LaserBeam>>,
+    mut beams: Query<
+        (
+            Entity,
+            &LaserBeamSource,
+            &mut Transform,
+            &mut Visibility,
+            &MeshMaterial3d<LaserMaterial>,
+        ),
+        With<LaserBeam>,
+    >,
     mut materials: ResMut<Assets<LaserMaterial>>,
 ) {
     let (mut right, mut left, mut bottom) = (false, false, false);

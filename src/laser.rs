@@ -85,7 +85,7 @@ pub fn setup_laser_mesh(
     commands.spawn((
         Mesh3d(beam_mesh_handle.clone()),
         MeshMaterial3d(beam_material_handle.clone()),
-        LaserBeam,                  // marker component
+        LaserBeam, // marker component
         LaserBeamSource { head },
         Transform::default(),       // will be updated each frame
         GlobalTransform::default(), // to ensure correct transform propagation
