@@ -21,7 +21,7 @@ opt-level = 1
 opt-level = 3
 
 [package]
-name = "and_you_will_be_happy"
+name = "pilot_garden"
 version = "0.1.0"
 edition = "2024"
 

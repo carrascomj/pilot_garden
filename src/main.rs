@@ -56,8 +56,8 @@ fn main() {
         .add_plugins((DefaultPlugins
             .set(WindowPlugin {
                 primary_window: Some(Window {
-                    title: "And you will be happy".into(),
-                    name: Some("And you will be happy".into()),
+                    title: "Pilot Garden".into(),
+                    name: Some("Pilot Garden".into()),
                     // Tells Wasm to resize the window according to the available canvas
                     fit_canvas_to_parent: true,
                     // Tells Wasm not to override default event handling, like F5, Ctrl+R etc.

@@ -137,17 +137,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "and_you_will_be_happy"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "bevy-inspector-egui",
- "bevy_mod_inverse_kinematics",
- "fastrand",
- "smallvec",
-]
-
-[[package]]
 name = "android-activity"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3957,6 +3946,17 @@ dependencies = [
  "indexmap",
  "serde",
  "serde_derive",
+]
+
+[[package]]
+name = "pilot_garden"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "bevy-inspector-egui",
+ "bevy_mod_inverse_kinematics",
+ "fastrand",
+ "smallvec",
 ]
 
 [[package]]
