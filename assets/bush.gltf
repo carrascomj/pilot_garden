@@ -1,6 +1,6 @@
 {
 	"asset":{
-		"generator":"Khronos glTF Blender I/O v4.4.56",
+		"generator":"Khronos glTF Blender I/O v5.0.21",
 		"version":"2.0"
 	},
 	"extensionsUsed":[
@@ -14504,9 +14504,9 @@
 			"name":"bushpink",
 			"pbrMetallicRoughness":{
 				"baseColorFactor":[
-					0.6541625261306763,
-					0.25015467405319214,
-					0.5896662473678589,
+					0.6514058709144592,
+					0.2501583695411682,
+					0.5906190276145935,
 					1
 				],
 				"metallicFactor":0,
