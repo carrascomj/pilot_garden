@@ -11,7 +11,6 @@ Pilot Garden is a 3D minigame.
 
 A `GeForce GTX 1050 Mobile` with 2GiB of vRAM works.
 
-
 ## Installation (compiling from source)
 
 The first step is to [install Rust](https://rust-lang.org/tools/install/):
@@ -21,7 +20,7 @@ The first step is to [install Rust](https://rust-lang.org/tools/install/):
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
-After cloning this repository, it can be run in the browser with
+After cloning this repository, it can be compiled and run with
 [cargo](https://doc.rust-lang.org/cargo/guide/creating-a-new-project.html):
 
 ```bash
