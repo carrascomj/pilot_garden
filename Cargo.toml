@@ -25,8 +25,13 @@ name = "pilot_garden"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+default = []
+# Enable for local dev builds when faster iterative compile times matter.
+dev_dynamic_linking = ["bevy/dynamic_linking"]
+
 [dependencies]
-bevy = { version = "0.16.1", features = ["dynamic_linking", "mp3", "file_watcher"] }
+bevy = { version = "0.16.1", features = ["mp3", "file_watcher"] }
 bevy-inspector-egui = "0.31.0"
 bevy_mod_inverse_kinematics = "0.9.0"
 fastrand = "=2.3.0"
