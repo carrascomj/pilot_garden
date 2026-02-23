@@ -11,7 +11,16 @@ Pilot Garden is a 3D minigame.
 
 A `GeForce GTX 1050 Mobile` with 2GiB of vRAM works.
 
-## Installation (compiling from source)
+## Installation
+
+### Precompiled
+
+Go to https://carrascomj.itch.io/pilot-garden or
+https://github.com/carrascomj/pilot_garden/releases/latest and download the file
+for you platform. If it's a zip, unzip it and execute the binary `pilot_garden` or
+`pilot_garde.exe`.
+
+### From source
 
 The first step is to [install Rust](https://rust-lang.org/tools/install/):
 
