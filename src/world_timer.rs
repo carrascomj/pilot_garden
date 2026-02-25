@@ -229,8 +229,8 @@ fn spawn_sun(
     // ));
 }
 
-#[derive(Component)]
-struct ReportAngle;
+// #[derive(Component)]
+// struct ReportAngle;
 
 /// Move the sun, keeping the radius around the Z origin and moving only Z and Y.
 fn orbit_sun(

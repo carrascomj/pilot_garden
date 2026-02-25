@@ -9,7 +9,7 @@ use crate::{
     gnomes::GnomeMachine,
     input_mapping::InputActions,
     player_movement::{Collider, Player},
-    surveillance::ButtonActivated,
+    surveillance::{But, ButtonActivated},
     world_timer::TimerComp,
 };
 use bevy::{
@@ -228,6 +228,7 @@ fn cast_player_ray(
                         Collectible::Seeds => Inventory::Seeds(1),
                         Collectible::Button => {
                             interaction.write(InteractionEvent::ButtonActivated);
+                            on_hand.active = true;
                             return;
                         }
                     };
@@ -311,11 +312,16 @@ fn send_interaction_events(
     mut seeds: EventWriter<SeedsPlaced>,
     mut button: EventWriter<ButtonActivated>,
     mut audio: EventWriter<AudioStart>,
+    mut button_query: Query<&mut TimerComp, With<But>>,
 ) {
     for ev in ev_reader.read() {
         match ev {
             InteractionEvent::ButtonActivated => {
                 button.write(ButtonActivated);
+                for mut b in &mut button_query {
+                    b.0.unpause();
+                    b.0.reset();
+                }
             }
 
             InteractionEvent::SeedsPlaced { hit_position } => {

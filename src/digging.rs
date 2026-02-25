@@ -21,12 +21,13 @@ impl Plugin for DiggingPlugin {
             .add_event::<SeedsPlaced>()
             .add_systems(
                 Update,
-                (
-                    animate_interaction,
-                    remove_when_life_depleted,
-                    animate_shrink,
-                )
-                    .run_if(in_state(GameState::Above)),
+                (remove_when_life_depleted, animate_shrink).run_if(in_state(GameState::Above)),
+            )
+            .add_systems(
+                Update,
+                animate_interaction
+                    // need it in below for the button
+                    .run_if(in_state(GameState::Below).or(in_state(GameState::Above))),
             )
             // tools animation might be playing while in Below already
             .add_systems(
@@ -93,6 +94,7 @@ impl Collectible {
                 const SEED_OFFSET: Vec3 = Vec3::new(1.6, -0.25, -2.8); // X right, Y up, Z forward
                 (SEED_OFFSET, SEEDS_ROT)
             }
+            Collectible::Button => (Vec3::new(-65., -23.8, 80.), Quat::IDENTITY),
             _ => {
                 const FPS_OFFSET: Vec3 = Vec3::new(1.4, -0.25, -1.8); // X right, Y up, Z forward
                 (FPS_OFFSET, REST_ROT)
@@ -154,9 +156,6 @@ impl OnHand {
         Self { active: false }
     }
 }
-
-#[derive(Component)]
-pub struct CollectibleParent;
 
 /// Attach [`Collectible`] markers to Shovel and MiningPick on spawn from gltf.
 fn add_collectibles(
@@ -220,6 +219,21 @@ fn wave(t: f32) -> f32 {
     (t * PI).sin()
 }
 
+fn button_press_ease(u: f32) -> f32 {
+    let t = u.clamp(0.0, 1.0);
+    let press_portion = 0.22; // first 22% of time is the press-down
+
+    if t < press_portion {
+        // fast ease-out to max depth
+        let x = t / press_portion;
+        1.0 - (1.0 - x).powi(3)
+    } else {
+        // slower ease-out back to rest
+        let x = (t - press_portion) / (1.0 - press_portion);
+        1.0 - x.powi(2)
+    }
+}
+
 fn animate_interaction(
     mut bones: Query<(&mut Transform, &OnHand, &TimerComp, &Collectible)>,
     mut audio_event: EventWriter<AudioStart>,
@@ -245,7 +259,7 @@ fn animate_interaction(
                         -0.45 * a, // and forward
                     );
                 let r = rest_rot * Quat::from_euler(EulerRot::XYZ, -1.0 * a, 0.5, 0.0);
-                (t, r, AudioStart::Shovel)
+                (t, r, Some(AudioStart::Shovel))
             }
             Collectible::MiningPick => {
                 let curve = CubicCardinalSpline {
@@ -262,7 +276,7 @@ fn animate_interaction(
                 .expect("Should work");
                 let t = curve.position(u * 2.);
                 let r = rest_rot * Quat::from_euler(EulerRot::XYZ, -0.4 * wave(u), 0.5, 0.0);
-                (t, r, AudioStart::Pick)
+                (t, r, Some(AudioStart::Pick))
             }
             Collectible::Food | Collectible::Seeds => {
                 let a = wave(u);
@@ -273,14 +287,19 @@ fn animate_interaction(
                         1.7 * a,   // closer to camera
                     );
                 let r = rest_rot * Quat::from_euler(EulerRot::YXZ, 0.15 * a, -0.10 * a, 0.10 * a);
-                (t, r, AudioStart::Pop)
+                (t, r, Some(AudioStart::Pop))
             }
-            _ => {
-                continue;
+            Collectible::Button => {
+                let a = button_press_ease(u);
+                // move down
+                let t = rest_pos + Vec3::new(0., -0.12 * a, 0.);
+                (t, rest_rot, None)
             }
         };
         if timer.0.just_finished() {
-            audio_event.write(audio);
+            if let Some(au) = audio {
+                audio_event.write(au);
+            }
         } else if timer.0.finished() {
             transform.translation = rest_pos;
             transform.rotation = rest_rot;

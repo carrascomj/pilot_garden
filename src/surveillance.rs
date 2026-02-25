@@ -332,11 +332,15 @@ fn setup_surveillance_camera(
         GameOverRemove,
         Transform::from_xyz(-65., -23.8, 80.),
         Collectible::Button,
+        But,
         OnHand::new(),
-        TimerComp::from_elapsed(1.),
+        TimerComp::from_elapsed(0.4),
         children!((button_material, button_mesh,)),
     ));
 }
+
+#[derive(Component)]
+pub struct But;
 
 /// Make the [`Snapshoter`] cameras active from time to
 /// time to put the camera in the screen.
