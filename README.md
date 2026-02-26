@@ -1,45 +1,46 @@
 # Pilot Garden
 
-Pilot Garden is a 3D minigame.
+Pilot Garden is a 3D minigame built with Rust and Bevy.
 
 > [!CAUTION]
 > The source code and the file names of the source code may contain major spoilers.
 
 ![screenshot of pilot garden](readme_screenshot.png)
 
-## Sytem requirements
+## System requirements
 
-A `GeForce GTX 1050 Mobile` with 2GiB of vRAM works.
+- GPU: `GeForce GTX 1050 Mobile` (2 GiB VRAM recommended)
+- OS: Windows, macOS, or Linux
 
 ## Installation
 
 ### Precompiled
 
-Go to https://carrascomj.itch.io/pilot-garden or
-https://github.com/carrascomj/pilot_garden/releases/latest and download the file
-for you platform. If it's a zip, unzip it and execute the binary `pilot_garden` or
-`pilot_garde.exe`.
+1. Go to [itch.io](https://carrascomj.itch.io/pilot-garden) or
+[Github Releases](https://github.com/carrascomj/pilot_garden/releases/latest)
+2. Download the file for your platform.
+3. If it's a zip, unzip it and run the binary:
+   - Windows: `pilot_garden.exe`
+   - Unix/macOS: `pilot_garden`
 
 ### From source
 
-The first step is to [install Rust](https://rust-lang.org/tools/install/):
+1. Instal Rust: https://rust-lang.org/tools/install/
 
 ```bash
-# Unix-like OS, click on the "install Rust" link if you're running on Windows
+# Unix-like OS, click on the link above for windows
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
-After cloning this repository, it can be compiled and run with
-[cargo](https://doc.rust-lang.org/cargo/guide/creating-a-new-project.html):
+2. Clone this repo and run the game with [Cargo](https://doc.rust-lang.org/cargo/guide/creating-a-new-project.html):
 
 ```bash
 git clone https://github.com/carrascomj/pilot_garden.git
 cd pilot_garden
-# this will take a while, depending on the number of CPU cores
 cargo run --release
 ```
 
-This may possibly require extra dependencies. Check the [bevy setup page](https://bevy.org/learn/quick-start/getting-started/setup/).
+> This may require additional dependencies. Check the [Bevy setup guide](https://bevy.org/learn/quick-start/getting-started/setup/) if needed.
 
 ## License
 
@@ -47,31 +48,18 @@ This may possibly require extra dependencies. Check the [bevy setup page](https:
 
 Copyright 2026 Jorge Carrasco Muriel.
 
-All source code in this repository, including shader code under `assets/`,
-is licensed under either of:
+All source code (including shaders in `assets/`) is dual-licensed under:
 
-- Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
-- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+- [Apache 2.0](http://www.apache.org/licenses/LICENSE-2.0)
+- [MIT license](http://opensource.org/licenses/MIT)
 
-at your option.
-
-
-### Assets (Non-Code)
+### Assets
 
 Copyright 2026 Jorge Carrasco Muriel.
 
-All assets located under the `assets/` directory, except for shader source code
-and the fonts, are licensed under the Creative Commons Attribution-NonCommercial
-4.0 International License (CC BY-NC 4.0).
-
-You may obtain a copy of the license at:
-https://creativecommons.org/licenses/by-nc/4.0/
-
-These assets may not be used for commercial purposes.
+All none code assets in `assets/` (except shaders and fonts) are licensed under [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/)
+> Non-commercial use only.
 
 ### Contribution
 
-Unless you explicitly state otherwise, any contribution intentionally submitted
-for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
-dual licensed as above (MIT OR Apache-2.0), without any additional terms or
-conditions.
+Any contribution intentionally submitted for inclusion in this work is also dual-licensed under MIT or Apache 2.0, unless you state otherwise.
