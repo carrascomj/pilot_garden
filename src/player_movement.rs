@@ -185,17 +185,26 @@ fn move_player(
 
         transform.rotation = Quat::from_euler(EulerRot::YXZ, yaw, pitch, roll);
     };
+    // ignore pitch/roll for movement so forward speed is constant on the ground plane.
+    let mut forward = transform.rotation * Vec3::NEG_Z;
+    forward.y = 0.0;
+    forward = forward.normalize_or_zero();
+
+    let mut right = transform.rotation * Vec3::X;
+    right.y = 0.0;
+    right = right.normalize_or_zero();
+
     if pressed.up {
-        input.0 += transform.rotation * Vec3::NEG_Z;
+        input.0 += forward;
     }
     if pressed.down {
-        input.0 -= transform.rotation * Vec3::NEG_Z;
+        input.0 -= forward;
     }
     if pressed.left {
-        input.0 -= transform.rotation * Vec3::X;
+        input.0 -= right;
     }
     if pressed.right {
-        input.0 += transform.rotation * Vec3::X;
+        input.0 += right;
     }
 
     // stay on ground: flatten the vector and renormalize
