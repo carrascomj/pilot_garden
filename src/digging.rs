@@ -21,13 +21,12 @@ impl Plugin for DiggingPlugin {
             .add_event::<SeedsPlaced>()
             .add_systems(
                 Update,
-                (remove_when_life_depleted, animate_shrink).run_if(in_state(GameState::Above)),
-            )
-            .add_systems(
-                Update,
-                animate_interaction
-                    // need it in below for the button
-                    .run_if(in_state(GameState::Below).or(in_state(GameState::Above))),
+                (
+                    remove_when_life_depleted,
+                    animate_shrink,
+                    animate_interaction,
+                )
+                    .run_if(in_state(GameState::Above).or(in_state(GameState::Below))),
             )
             // tools animation might be playing while in Below already
             .add_systems(
@@ -356,7 +355,7 @@ fn remove_when_life_depleted(
             let not_gnome = maybe_gnome.is_none();
             if count <= &0 {
                 if let Some(mut gnome) = maybe_gnome {
-                    gnome.next_state();
+                    gnome.kill();
                     // if a gnome is hitted, the secret is revealed
                     secret_rev.0 = true;
                 } else {

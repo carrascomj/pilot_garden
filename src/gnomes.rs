@@ -119,6 +119,11 @@ impl GnomeMachine {
         self.is_changed = true;
     }
 
+    pub fn kill(&mut self) {
+        self.state = GnomeState::WaitingToDie(Timer::from_seconds(TOOL_ANIM_TIME, TimerMode::Once));
+        self.is_changed = true;
+    }
+
     pub fn waiting_for_attack(&mut self) {
         self.state = match self.state {
             GnomeState::Dying | GnomeState::Attacking | GnomeState::Inactive => return,
@@ -255,6 +260,8 @@ fn spawn_gnomes_below(
             },
             Collider::from_translation(Vec3::new(x, -26.3, z) + Vec3::Y * 0.5, GNOME_SIZE),
             Transform::from_xyz(x, -26.3, z).with_rotation(Quat::from_rotation_y(rot_y)),
+            Minable,
+            Life::JustSpawned,
         ));
     }
 }
