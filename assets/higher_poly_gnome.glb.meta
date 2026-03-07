@@ -1,0 +1,18 @@
+(
+    meta_format_version: "1.0",
+    asset: Load(
+        loader: "bevy_gltf::loader::GltfLoader",
+        settings: (
+            load_meshes: ("MAIN_WORLD | RENDER_WORLD"),
+            load_materials: ("RENDER_WORLD"),
+            load_cameras: false,
+            load_lights: false,
+            load_animations: true,
+            include_source: false,
+            default_sampler: None,
+            override_sampler: false,
+            validate: true,
+            convert_coordinates: None,
+            skinned_mesh_bounds_policy: None,        ),
+    ),
+)
