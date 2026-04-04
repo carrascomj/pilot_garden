@@ -13,7 +13,11 @@ use crate::{
     world_timer::TimerComp,
 };
 use bevy::{
-    ecs::{archetype::ArchetypeId, query::QueryEntityError},
+    ecs::{
+        archetype::ArchetypeId,
+        message::{MessageReader, MessageWriter},
+        query::QueryEntityError,
+    },
     prelude::*,
 };
 use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::FilterQueryInspectorPlugin};
@@ -25,8 +29,8 @@ impl Plugin for FirstPersonPickerPlugin {
         app.add_systems(OnExit(GameState::Menu), spawn_cross)
             .add_systems(OnEnter(GameState::Menu), despawn_cross)
             .init_resource::<Inventory>()
-            .add_event::<DropTool>()
-            .add_event::<InteractionEvent>()
+            .add_message::<DropTool>()
+            .add_message::<InteractionEvent>()
             .add_systems(
                 Update,
                 (cast_player_ray, send_interaction_events).run_if(not(in_state(GameState::Menu))),
@@ -37,9 +41,7 @@ impl Plugin for FirstPersonPickerPlugin {
             );
         if cfg!(debug_assertions) {
             app.init_gizmo_group::<MyRoundGizmos>()
-                .add_plugins(EguiPlugin {
-                    enable_multipass_for_primary_context: true,
-                })
+                .add_plugins(EguiPlugin::default())
                 .add_plugins(FilterQueryInspectorPlugin::<With<GnomeMachine>>::default())
                 .add_systems(Update, (activate_gizmos, draw_collider_gizmos));
         }
@@ -48,7 +50,7 @@ impl Plugin for FirstPersonPickerPlugin {
 
 #[derive(Component)]
 pub struct RayBlocker;
-#[derive(Event)]
+#[derive(Message)]
 pub enum InteractionEvent {
     ButtonActivated,
     SeedsPlaced { hit_position: Vec3 },
@@ -134,8 +136,8 @@ impl Default for CooldownTimer {
 fn cast_player_ray(
     time: Res<Time>,
     mut commands: Commands,
-    mut interaction: EventWriter<InteractionEvent>,
-    mut drop_tool: EventWriter<DropTool>,
+    mut interaction: MessageWriter<InteractionEvent>,
+    mut drop_tool: MessageWriter<DropTool>,
     mut inventory: ResMut<Inventory>,
     pressed: Res<InputActions>,
     mut ray_cast: MeshRayCast,
@@ -162,9 +164,9 @@ fn cast_player_ray(
     children: Query<&ChildOf>,
     mut interaction_cooldown: Local<CooldownTimer>,
 ) {
-    if !interaction_cooldown.0.finished() {
+    if !interaction_cooldown.0.is_finished() {
         interaction_cooldown.0.tick(time.delta());
-        *cross_q.0 = BorderColor(Color::srgba(0., 0., 0., 0.2));
+        *cross_q.0 = BorderColor::all(Color::srgba(0., 0., 0., 0.2));
         *cross_q.1 = BackgroundColor(Color::srgba(0., 0., 0., 0.2));
         cross_q.2.color = Color::srgba(0., 0., 0., 0.2);
         cross_q.3.height = Val::Vh(1.);
@@ -202,14 +204,14 @@ fn cast_player_ray(
             };
             let trigger = &trigger_parent.0;
             if blockers.contains(*child) || blockers.contains(*trigger) {
-                *cross_q.0 = BorderColor(Color::srgba(0., 0., 0., 0.2));
+                *cross_q.0 = BorderColor::all(Color::srgba(0., 0., 0., 0.2));
                 *cross_q.1 = BackgroundColor(Color::srgba(0., 0., 0., 0.2));
                 cross_q.2.color = Color::srgba(0., 0., 0., 0.2);
                 cross_q.3.height = Val::Vh(1.);
                 cross_q.3.width = Val::Vh(1.);
                 return;
             }
-            *cross_q.0 = BorderColor(Color::srgba(0.3, 1.0, 0.4, 0.7));
+            *cross_q.0 = BorderColor::all(Color::srgba(0.3, 1.0, 0.4, 0.7));
             *cross_q.1 = BackgroundColor(Color::srgba(0.3, 1.0, 0.4, 0.7));
             cross_q.2.color = Color::srgba(0.3, 1.0, 0.4, 0.7);
             cross_q.3.height = Val::Vh(2.);
@@ -236,7 +238,7 @@ fn cast_player_ray(
                         for on_hand_child in to_drop {
                             commands
                                 .entity(player_ent)
-                                .remove_children(&[*on_hand_child]);
+                                .detach_children(&[*on_hand_child]);
                             drop_tool.write(DropTool {
                                 tool: *on_hand_child,
                                 drop_position: ray_pos,
@@ -289,14 +291,14 @@ fn cast_player_ray(
                 }
             }
         } else {
-            *cross_q.0 = BorderColor(Color::srgba(0., 0., 0., 0.2));
+            *cross_q.0 = BorderColor::all(Color::srgba(0., 0., 0., 0.2));
             *cross_q.1 = BackgroundColor(Color::srgba(0., 0., 0., 0.2));
             cross_q.2.color = Color::srgba(0., 0., 0., 0.2);
             cross_q.3.height = Val::Vh(1.);
             cross_q.3.width = Val::Vh(1.);
         }
     } else {
-        *cross_q.0 = BorderColor(Color::srgba(0., 0., 0., 0.2));
+        *cross_q.0 = BorderColor::all(Color::srgba(0., 0., 0., 0.2));
         *cross_q.1 = BackgroundColor(Color::srgba(0., 0., 0., 0.2));
         cross_q.2.color = Color::srgba(0., 0., 0., 0.2);
         cross_q.3.height = Val::Vh(1.);
@@ -308,10 +310,10 @@ fn cast_player_ray(
 ///
 /// This is done this way to avoid passing the limit of arguments in [`cast_player_ray`].
 fn send_interaction_events(
-    mut ev_reader: EventReader<InteractionEvent>,
-    mut seeds: EventWriter<SeedsPlaced>,
-    mut button: EventWriter<ButtonActivated>,
-    mut audio: EventWriter<AudioStart>,
+    mut ev_reader: MessageReader<InteractionEvent>,
+    mut seeds: MessageWriter<SeedsPlaced>,
+    mut button: MessageWriter<ButtonActivated>,
+    mut audio: MessageWriter<AudioStart>,
     mut button_query: Query<&mut TimerComp, With<But>>,
 ) {
     for ev in ev_reader.read() {
@@ -356,7 +358,7 @@ impl Default for Inventory {
     }
 }
 impl Inventory {
-    fn decrease(&mut self, ev: &mut EventWriter<InteractionEvent>) {
+    fn decrease(&mut self, ev: &mut MessageWriter<InteractionEvent>) {
         match self {
             &mut Inventory::Shovel(ref mut counter)
             | &mut Inventory::Seeds(ref mut counter)
@@ -403,70 +405,71 @@ pub enum UIDot {
 }
 
 fn spawn_cross(mut commands: Commands) {
-    commands.spawn((
-        Node {
-            display: Display::Block,
-            position_type: PositionType::Absolute,
-            top: Val::Vh(50.),
-            right: Val::Vw(50.),
-            height: Val::Vh(1.),
-            width: Val::Vh(1.),
-            ..default()
-        },
-        Cross,
-        BorderRadius::MAX,
-        BorderColor(Color::srgba(0., 0., 0., 0.2)),
-        Outline {
-            width: Val::Px(3.),
-            offset: Val::Px(3.),
-            color: Color::srgba(0., 0., 0., 0.2),
-        },
-        BackgroundColor(Color::srgba(0., 0., 0., 0.2)),
-        children![
-            (
+    commands
+        .spawn((
+            Node {
+                display: Display::Block,
+                position_type: PositionType::Absolute,
+                top: Val::Vh(50.),
+                right: Val::Vw(50.),
+                height: Val::Vh(1.),
+                width: Val::Vh(1.),
+                border_radius: BorderRadius::MAX,
+                ..default()
+            },
+            Cross,
+            BorderColor::all(Color::srgba(0., 0., 0., 0.2)),
+            Outline {
+                width: Val::Px(3.),
+                offset: Val::Px(3.),
+                color: Color::srgba(0., 0., 0., 0.2),
+            },
+            BackgroundColor(Color::srgba(0., 0., 0., 0.2)),
+        ))
+        .with_children(|parent| {
+            parent.spawn((
                 Node {
                     display: Display::Block,
                     position_type: PositionType::Absolute,
                     left: Val::Vw(-3.),
                     height: Val::Vh(1.),
                     width: Val::Vh(1.),
+                    border_radius: BorderRadius::MAX,
                     ..default()
                 },
                 UIDot::Left,
-                BorderRadius::MAX,
                 BackgroundColor(Color::srgba(1., 0.3, 0.9, 0.8)),
                 Visibility::Hidden,
-            ),
-            (
+            ));
+            parent.spawn((
                 Node {
                     display: Display::Block,
                     position_type: PositionType::Absolute,
                     left: Val::Vw(3.),
                     height: Val::Vh(1.),
                     width: Val::Vh(1.),
+                    border_radius: BorderRadius::MAX,
                     ..default()
                 },
                 UIDot::Right,
-                BorderRadius::MAX,
                 BackgroundColor(Color::srgba(1., 0.3, 0.9, 0.8)),
                 Visibility::Hidden,
-            ),
-            (
+            ));
+            parent.spawn((
                 Node {
                     display: Display::Block,
                     position_type: PositionType::Absolute,
                     top: Val::Vw(3.),
                     height: Val::Vh(1.),
                     width: Val::Vh(1.),
+                    border_radius: BorderRadius::MAX,
                     ..default()
                 },
                 UIDot::Bottom,
-                BorderRadius::MAX,
                 BackgroundColor(Color::srgba(1., 0.3, 0.9, 0.8)),
                 Visibility::Hidden,
-            ),
-        ],
-    ));
+            ));
+        });
 }
 
 fn despawn_cross(mut commands: Commands, cross: Single<Entity, With<Cross>>) {
@@ -512,7 +515,7 @@ fn eat_food(mut inventory: ResMut<Inventory>, pressed: Res<InputActions>) {
     }
 }
 
-#[derive(Event)]
+#[derive(Message)]
 struct DropTool {
     tool: Entity,
     drop_position: Vec3,
@@ -520,7 +523,7 @@ struct DropTool {
 }
 
 fn leave_tools_proper(
-    mut ev: EventReader<DropTool>,
+    mut ev: MessageReader<DropTool>,
     mut tool_query: Query<(&mut Transform, &mut OnHand, &mut Collectible)>,
 ) {
     for DropTool {
@@ -587,6 +590,6 @@ fn draw_collider_gizmos(mut my_gizmos: Gizmos<MyRoundGizmos>, dig_colliders: Que
             centre,         // translation
         );
 
-        my_gizmos.cuboid(xf, CORAL);
+        my_gizmos.cube(xf, CORAL);
     }
 }

@@ -1,6 +1,8 @@
 use bevy::{
+    ecs::message::{MessageReader, MessageWriter},
     prelude::*,
-    render::render_resource::{AsBindGroup, ShaderRef},
+    render::render_resource::AsBindGroup,
+    shader::ShaderRef,
     window::CursorOptions,
 };
 
@@ -32,7 +34,7 @@ const RESOLUTIONS: &[(u32, u32)] = &[
 
 impl Plugin for GameMenu {
     fn build(&self, app: &mut App) {
-        app.add_event::<ApplyResolution>()
+        app.add_message::<ApplyResolution>()
             .init_resource::<Winner>()
             .add_systems(
                 OnEnter(GameState::Menu),
@@ -82,7 +84,7 @@ fn spawn_game_menu(
     mut ui_materials: ResMut<Assets<HibernationMaterial>>,
     winner: Res<Winner>,
     mut secret_rev: ResMut<SecretRevealed>,
-    mut window: Single<&mut Window>,
+    mut cursor_options: Single<&mut CursorOptions>,
     collectibles: Query<Entity, (With<Collectible>, With<OnHand>)>,
     mut dodgers: Query<(&Dodgy, &mut Transform, &mut TimerComp), Without<Capsule>>,
 ) {
@@ -147,7 +149,7 @@ fn spawn_game_menu(
                                 align_items: AlignItems::Center,
                                 ..default()
                             },
-                            BorderColor(BUTTON_COLOR),
+                            BorderColor::all(BUTTON_COLOR),
                             BoxShadow::new(
                                 BUTTON_COLOR.with_alpha(0.2),
                                 Val::Percent(0.),
@@ -180,7 +182,7 @@ fn spawn_game_menu(
                                 align_items: AlignItems::Center,
                                 ..default()
                             },
-                            BorderColor(BUTTON_COLOR),
+                            BorderColor::all(BUTTON_COLOR),
                             BoxShadow::new(
                                 BUTTON_COLOR.with_alpha(0.2),
                                 Val::Percent(0.),
@@ -212,7 +214,7 @@ fn spawn_game_menu(
                                 align_items: AlignItems::Center,
                                 ..default()
                             },
-                            BorderColor(BUTTON_COLOR),
+                            BorderColor::all(BUTTON_COLOR),
                             BoxShadow::new(
                                 BUTTON_COLOR.with_alpha(0.2),
                                 Val::Percent(0.),
@@ -261,7 +263,7 @@ fn spawn_game_menu(
             ),
         ],
     ));
-    window.cursor_options = CursorOptions {
+    **cursor_options = CursorOptions {
         visible: true,
         grab_mode: bevy::window::CursorGrabMode::Locked,
         ..default()
@@ -322,7 +324,7 @@ impl UiMaterial for HibernationMaterial {
 
 fn button_system(
     mut commands: Commands,
-    mut app_exit_events: EventWriter<AppExit>,
+    mut app_exit_events: MessageWriter<AppExit>,
     mut interaction_query: Populated<
         (
             &Interaction,
@@ -334,12 +336,12 @@ fn button_system(
         (Changed<Interaction>, With<Button>),
     >,
     mut text_query: Query<&mut TextColor>,
-    mut window: Single<&mut Window>,
+    mut cursor_options: Single<&mut CursorOptions>,
     mut ui_materials: ResMut<Assets<HibernationMaterial>>,
     to_rm_on_start: Query<Entity, With<RemoveOnStart>>,
     mut settings_q: Query<(Entity, &mut SelectedResolution, &mut Visibility), With<SettingsMenu>>,
     mut res_text_q: Query<&mut Text, With<ResolutionText>>,
-    mut apply_res: EventWriter<ApplyResolution>,
+    mut apply_res: MessageWriter<ApplyResolution>,
 ) {
     for (interaction, mut box_shadow, mut border_color, children, action) in
         interaction_query.iter_mut()
@@ -352,7 +354,7 @@ fn button_system(
                 *text_color = PRESSED_COLOR.into();
                 match action {
                     ButtonAction::StartGame => {
-                        window.cursor_options = CursorOptions {
+                        **cursor_options = CursorOptions {
                             visible: false,
                             grab_mode: bevy::window::CursorGrabMode::Locked,
                             ..default()
@@ -446,7 +448,7 @@ fn spawn_exit_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                 align_items: AlignItems::Center,
                 ..default()
             },
-            BorderColor(BUTTON_COLOR.with_alpha(0.8)),
+            BorderColor::all(BUTTON_COLOR.with_alpha(0.8)),
             Outline {
                 width: Val::Px(6.),
                 offset: Val::Px(6.),
@@ -473,7 +475,7 @@ fn spawn_exit_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    BorderColor(BUTTON_COLOR),
+                    BorderColor::all(BUTTON_COLOR),
                     BoxShadow::new(
                         BUTTON_COLOR.with_alpha(0.2),
                         Val::Percent(0.),
@@ -500,7 +502,7 @@ fn spawn_exit_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ..default()
                     },
                     TextLayout {
-                        justify: JustifyText::Center,
+                        justify: Justify::Center,
                         ..default()
                     },
                     TextColor(BUTTON_COLOR),
@@ -513,14 +515,14 @@ fn spawn_exit_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 /// Show/hide Exit menu or, if inside Settings menu, hide it.
 fn toggle_escape_menus(
-    mut window: Single<&mut Window>,
+    mut cursor_options: Single<&mut CursorOptions>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut exit_menu_query: Query<&mut Visibility, (With<ExitEscMenu>, Without<SettingsMenu>)>,
     mut settings_menu_query: Query<&mut Visibility, (With<SettingsMenu>, Without<ExitEscMenu>)>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Escape) {
         for mut exit_menu in &mut exit_menu_query {
-            if window.cursor_options.visible && *exit_menu == Visibility::Hidden {
+            if cursor_options.visible && *exit_menu == Visibility::Hidden {
                 // in a menu already, do not trigger Esc menu
                 break;
             }
@@ -528,7 +530,7 @@ fn toggle_escape_menus(
                 Visibility::Visible => false,
                 _ => true,
             };
-            window.cursor_options.visible = cursor_visible;
+            cursor_options.visible = cursor_visible;
             exit_menu.toggle_visible_hidden();
         }
         for mut settings_menu in &mut settings_menu_query {
@@ -579,7 +581,7 @@ fn spawn_settings_menu(
         SelectedResolution(idx),
         Visibility::Hidden,
         BackgroundColor(Color::BLACK.with_alpha(0.8)),
-        StateScoped(GameState::Menu),
+        DespawnOnExit(GameState::Menu),
         ZIndex(10),
         children![(
             Node {
@@ -590,7 +592,7 @@ fn spawn_settings_menu(
                 align_items: AlignItems::Center,
                 ..default()
             },
-            BorderColor(BUTTON_COLOR.with_alpha(0.8)),
+            BorderColor::all(BUTTON_COLOR.with_alpha(0.8)),
             Outline {
                 width: Val::Px(6.0),
                 offset: Val::Px(6.0),
@@ -625,7 +627,7 @@ fn spawn_settings_menu(
                                 align_items: AlignItems::Center,
                                 ..default()
                             },
-                            BorderColor(BUTTON_COLOR),
+                            BorderColor::all(BUTTON_COLOR),
                             BoxShadow::new(
                                 BUTTON_COLOR.with_alpha(0.2),
                                 Val::Percent(0.),
@@ -659,7 +661,7 @@ fn spawn_settings_menu(
                                     ..default()
                                 },
                                 TextLayout {
-                                    justify: JustifyText::Center,
+                                    justify: Justify::Center,
                                     ..default()
                                 },
                                 TextColor(BUTTON_COLOR),
@@ -678,7 +680,7 @@ fn spawn_settings_menu(
                                 align_items: AlignItems::Center,
                                 ..default()
                             },
-                            BorderColor(BUTTON_COLOR),
+                            BorderColor::all(BUTTON_COLOR),
                             BoxShadow::new(
                                 BUTTON_COLOR.with_alpha(0.2),
                                 Val::Percent(0.),
@@ -711,7 +713,7 @@ fn spawn_settings_menu(
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    BorderColor(BUTTON_COLOR),
+                    BorderColor::all(BUTTON_COLOR),
                     BoxShadow::new(
                         BUTTON_COLOR.with_alpha(0.2),
                         Val::Percent(0.),
@@ -735,11 +737,11 @@ fn spawn_settings_menu(
     ));
 }
 
-#[derive(Event)]
+#[derive(Message)]
 struct ApplyResolution(pub UVec2);
 
 // FIXME: this freezes the screen for some reason.
-fn apply_resolution(mut evr: EventReader<ApplyResolution>, mut window: Single<&mut Window>) {
+fn apply_resolution(mut evr: MessageReader<ApplyResolution>, mut window: Single<&mut Window>) {
     for e in evr.read() {
         window.resolution.set(e.0.x as f32, e.0.y as f32);
     }

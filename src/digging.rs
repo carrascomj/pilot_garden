@@ -8,6 +8,7 @@ use crate::emoji_particles::{EmojiBurst, SecretRevealed};
 use crate::gnomes::{GnomeMachine, PlatformMover};
 use crate::player_movement::{Collider, Player};
 use crate::world_timer::TimerComp;
+use bevy::ecs::{message::MessageWriter, observer::On};
 use bevy::prelude::*;
 use bevy::scene::SceneInstanceReady;
 
@@ -18,7 +19,7 @@ pub struct DiggingPlugin;
 impl Plugin for DiggingPlugin {
     fn build(&self, app: &mut App) {
         app.add_observer(add_collectibles)
-            .add_event::<SeedsPlaced>()
+            .add_message::<SeedsPlaced>()
             .add_systems(
                 Update,
                 (
@@ -36,7 +37,7 @@ impl Plugin for DiggingPlugin {
             .add_systems(
                 PostUpdate,
                 add_colliders_to_diggables
-                    .after(TransformSystem::TransformPropagate)
+                    .after(TransformSystems::Propagate)
                     .run_if(in_state(GameState::Above)),
             );
     }
@@ -114,12 +115,12 @@ pub struct FakeGround;
 /// despawning and spwaning of crops when the player enters
 /// the menu.
 pub fn was_removed_by_player(
-    trigger: Trigger<OnAdd, RemoveTimer>,
+    trigger: On<Add, RemoveTimer>,
     mut commands: Commands,
     fake_ground: Query<&FakeGround>,
     platform_mover: Single<Entity, With<PlatformMover>>,
 ) {
-    if fake_ground.contains(trigger.target()) {
+    if fake_ground.contains(trigger.event_target()) {
         commands
             .entity(platform_mover.entity())
             .insert(RemoveTimer::new());
@@ -140,7 +141,7 @@ fn add_colliders_to_diggables(
         ));
     }
 }
-#[derive(Event)]
+#[derive(Message)]
 pub struct SeedsPlaced {
     pub hit_position: Vec3,
 }
@@ -158,11 +159,11 @@ impl OnHand {
 
 /// Attach [`Collectible`] markers to Shovel and MiningPick on spawn from gltf.
 fn add_collectibles(
-    trigger: Trigger<SceneInstanceReady>,
+    trigger: On<SceneInstanceReady>,
     mut commands: Commands,
     added_names: Query<(Entity, &Name), (Without<Collectible>, Added<Name>)>,
 ) {
-    let _e = trigger.target();
+    let _e = trigger.event_target();
     for (entity, name) in added_names.iter() {
         match name.as_str() {
             "Shovel" => {
@@ -200,13 +201,13 @@ fn add_collectibles(
 
 /// Emit audio on picking an item (inserted unto the player).
 fn audio_item_picked(
-    on_insert: Trigger<OnInsert, ChildOf>,
-    mut audio_event: EventWriter<AudioStart>,
+    on_insert: On<Insert, ChildOf>,
+    mut audio_event: MessageWriter<AudioStart>,
     child: Query<&ChildOf>,
     player_query: Query<Entity, With<Player>>,
 ) {
     if child
-        .get(on_insert.target())
+        .get(on_insert.event_target())
         .map(|e| player_query.get(e.0))
         .is_ok()
     {
@@ -235,7 +236,7 @@ fn button_press_ease(u: f32) -> f32 {
 
 fn animate_interaction(
     mut bones: Query<(&mut Transform, &OnHand, &TimerComp, &Collectible)>,
-    mut audio_event: EventWriter<AudioStart>,
+    mut audio_event: MessageWriter<AudioStart>,
 ) {
     for (mut transform, on_hand, timer, collectible) in &mut bones {
         // the children its the mesh, transforms are better
@@ -299,7 +300,7 @@ fn animate_interaction(
             if let Some(au) = audio {
                 audio_event.write(au);
             }
-        } else if timer.0.finished() {
+        } else if timer.0.is_finished() {
             transform.translation = rest_pos;
             transform.rotation = rest_rot;
             continue;
@@ -375,8 +376,8 @@ fn remove_when_life_depleted(
 
 fn remove_animation(
     mut commands: Commands,
-    mut emoji_event: EventWriter<EmojiBurst>,
-    mut audio_event: EventWriter<AudioStart>,
+    mut emoji_event: MessageWriter<EmojiBurst>,
+    mut audio_event: MessageWriter<AudioStart>,
     time: Res<Time>,
     mut to_remove: Query<(Entity, &mut Transform, &mut RemoveTimer)>,
 ) {

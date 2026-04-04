@@ -1,15 +1,14 @@
 //! Laser component and materials.
 
 use bevy::{
+    camera::visibility::NoFrustumCulling,
+    mesh::{primitives::{CylinderAnchor, CylinderMeshBuilder}, MeshVertexBufferLayoutRef},
     pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
-    render::{
-        mesh::{CylinderAnchor, CylinderMeshBuilder, MeshVertexBufferLayoutRef},
-        render_resource::{
-            AsBindGroup, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
-        },
-        view::NoFrustumCulling,
+    render::render_resource::{
+        AsBindGroup, RenderPipelineDescriptor, SpecializedMeshPipelineError,
     },
+    shader::ShaderRef,
 };
 
 pub struct LaserPlugin;
@@ -36,7 +35,7 @@ pub struct LaserBeamSource {
 #[derive(Asset, TypePath, AsBindGroup, Clone)]
 pub struct LaserMaterial {
     /// Timer fraction In [0,1] to visually build the anticipation for firing
-    /// the laser. If fraction > 1, the laser fires (all in shader code.)
+    /// the laser. This is bound at material binding `0`.
     #[uniform(0)]
     pub fraction: f32,
 }
@@ -53,7 +52,7 @@ impl Material for LaserMaterial {
         AlphaMode::Add
     }
     fn specialize(
-        _pipeline: &MaterialPipeline<Self>,
+        _pipeline: &MaterialPipeline,
         descriptor: &mut RenderPipelineDescriptor,
         _layout: &MeshVertexBufferLayoutRef,
         _key: MaterialPipelineKey<Self>,

@@ -18,13 +18,17 @@ struct VOut {
     @location(2) height         : f32,
 };
 
-@group(2) @binding(0) var<uniform> fraction : f32;
+struct LaserMaterial {
+    fraction : f32,
+}
+
+@group(#{MATERIAL_BIND_GROUP}) @binding(0) var<uniform> material : LaserMaterial;
 
 @vertex
 fn vertex(i: Vertex) -> VOut {
     var o: VOut;
 
-    let charge = clamp(fraction, 0.0, 1.0);
+    let charge = clamp(material.fraction, 0.0, 1.0);
     let ramp = smoothstep(0.05, 1.0, charge);
     let pulse = 0.10 * sin(globals.time * 10.0 + i.position.y * 9.0);
     let width = max(0.45, 0.9 + ramp * 3.2 + pulse);
@@ -54,7 +58,7 @@ fn vertex(i: Vertex) -> VOut {
 
 @fragment
 fn fragment(i: VOut) -> @location(0) vec4<f32> {
-    let charge = clamp(fraction, 0.0, 1.0);
+    let charge = clamp(material.fraction, 0.0, 1.0);
     let base_color = mix(vec3<f32>(0.72, 0.45, 0.98), vec3<f32>(0.95, 0.10, 1.00), charge);
     let hot_color = mix(base_color, vec3<f32>(1.00, 0.05, 0.85), smoothstep(0.6, 1.0, charge));
     let core = smoothstep(0.16, 0.0, i.radial);

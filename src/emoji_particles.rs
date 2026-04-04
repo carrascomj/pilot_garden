@@ -1,7 +1,14 @@
 //! 2D particle system for emojis (streaming-like?), on
 //! performed irrelevant actions that the "viewers" would like.
 
-use bevy::{ecs::entity_disabling::Disabled, prelude::*};
+use bevy::{
+    ecs::{
+        entity_disabling::Disabled,
+        message::{MessageReader, MessageWriter},
+        observer::On,
+    },
+    prelude::*,
+};
 use fastrand::Rng;
 
 use crate::{audio::AudioStart, config::GameState};
@@ -16,7 +23,7 @@ impl Plugin for EmojiPlugin {
         app.init_resource::<ParticleNoise>()
             .init_resource::<ParticleTimer>()
             .init_resource::<SecretRevealed>()
-            .add_event::<EmojiBurst>()
+            .add_message::<EmojiBurst>()
             .add_systems(Startup, setup_emoji_particles)
             .add_systems(
                 FixedUpdate,
@@ -32,9 +39,9 @@ impl Plugin for EmojiPlugin {
             )
             .add_systems(Last, is_secret_and_dirty.pipe(toggle_particles))
             .add_observer(
-                |_trig: Trigger<OnRemove, Secret>,
+                |_trig: On<Remove, Secret>,
                  mut sc: ResMut<SecretRevealed>,
-                 mut audio_event: EventWriter<AudioStart>| {
+                 mut audio_event: MessageWriter<AudioStart>| {
                     sc.0 = true;
                     audio_event.write(AudioStart::Secret);
                 },
@@ -49,12 +56,11 @@ fn setup_emoji_particles(
 ) {
     commands.spawn((
         Camera {
-            hdr: false,
             // Camera3D is 0, this is rendered later, on top
             order: 1,
             ..Default::default()
         },
-        Camera2d::default(),
+        Camera2d,
     ));
     const EMOJI_PATHS: [&str; 11] = [
         "emojis/banana.png",
@@ -157,7 +163,7 @@ fn resolve_particle_physics(
     }
 }
 
-#[derive(Event)]
+#[derive(Message)]
 pub struct EmojiBurst {
     // velocity to apply to the emojis
     pub velocity: f32,
@@ -202,8 +208,8 @@ impl ParticleNoise {
 /// Sets pre-velocity to be applied from incoming events.
 fn receive_particle_velocity(
     time: Res<Time>,
-    mut burst_event: EventReader<EmojiBurst>,
-    mut audio_event: EventWriter<AudioStart>,
+    mut burst_event: MessageReader<EmojiBurst>,
+    mut audio_event: MessageWriter<AudioStart>,
     mut timer: ResMut<ParticleTimer>,
     mut noise: ResMut<ParticleNoise>,
     mut query: Query<&mut PreVelocity2d>,
@@ -230,7 +236,7 @@ fn apply_delayed_velocity(
     timer: Res<ParticleTimer>,
     mut query: Query<(&mut PreVelocity2d, &mut Velocity2d)>,
 ) {
-    if !timer.0.finished() {
+    if !timer.0.is_finished() {
         let u = timer.0.fraction();
         for (mut pre_vel, mut vel) in &mut query {
             if pre_vel.velocity != Vec2::ZERO {

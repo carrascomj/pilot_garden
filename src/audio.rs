@@ -1,5 +1,6 @@
 //! Audio controllers.
 
+use bevy::ecs::message::MessageReader;
 use bevy::prelude::*;
 
 use crate::{GameOverRemove, dodgy::GaussianNoise};
@@ -8,13 +9,13 @@ pub struct AudioPlugin;
 
 impl Plugin for AudioPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<AudioStart>()
+        app.add_message::<AudioStart>()
             .add_systems(Startup, load_assets)
             .add_systems(Update, play_audio);
     }
 }
 
-#[derive(Clone, Event)]
+#[derive(Clone, Message)]
 pub enum AudioStart {
     Bush,
     Fence,
@@ -86,7 +87,7 @@ pub struct DrumsToStop;
 
 fn play_audio(
     mut commands: Commands,
-    mut audio_triggers: EventReader<AudioStart>,
+    mut audio_triggers: MessageReader<AudioStart>,
     sound_assets: Res<AudioAssets>,
     mut gaussian: ResMut<GaussianNoise>,
 ) {

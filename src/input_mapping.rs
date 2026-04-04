@@ -1,6 +1,6 @@
 //! Systems to map all button inputs (Key, Mouse) to user actions (Jump, Left).
 
-use bevy::input::InputSystem;
+use bevy::input::InputSystems;
 use bevy::prelude::*;
 
 /// Introduces a resource that is updated to translate button inputs
@@ -11,7 +11,7 @@ impl Plugin for InputMappingPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<InputActions>()
             // refresh the mapping every frame after Bevy updates ButtonInput<*>
-            .add_systems(PreUpdate, update_pressed_buttons.after(InputSystem));
+            .add_systems(PreUpdate, update_pressed_buttons.after(InputSystems));
     }
 }
 

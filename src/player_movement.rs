@@ -5,7 +5,7 @@ use crate::{
 use bevy::{
     core_pipeline::{Skybox, tonemapping::Tonemapping},
     input::mouse::AccumulatedMouseMotion,
-    pbr::NotShadowCaster,
+    light::NotShadowCaster,
     prelude::*,
     render::render_resource::{TextureViewDescriptor, TextureViewDimension},
 };
@@ -80,7 +80,6 @@ fn spawn_player(mut commands: Commands, asset_server: ResMut<AssetServer>) {
         }),
         Camera {
             clear_color: ClearColorConfig::Custom(Color::srgb(0.25, 0.2, 0.5)),
-            hdr: false,
             order: 0,
             ..Default::default()
         },
@@ -117,7 +116,7 @@ fn load_skybox(
     *loaded = true;
     let image = images.get_mut(&mut loading_sky.handle).unwrap();
     let array_layers = 6;
-    image.reinterpret_stacked_2d_as_array(array_layers);
+    let _ = image.reinterpret_stacked_2d_as_array(array_layers);
     image.texture_view_descriptor = Some(TextureViewDescriptor {
         dimension: Some(TextureViewDimension::Cube),
         ..default()
@@ -130,7 +129,7 @@ fn load_skybox(
 }
 
 fn reset_player(
-    mut ambient_light: ResMut<AmbientLight>,
+    mut ambient_light: ResMut<GlobalAmbientLight>,
     mut player: Single<
         (
             &mut Transform,

@@ -1,5 +1,6 @@
 //! Game over screen.
 
+use bevy::ecs::message::MessageWriter;
 use bevy::prelude::*;
 
 use crate::{
@@ -29,7 +30,7 @@ fn show_game_over(
     mut commands: Commands,
     mut secret_rev: ResMut<SecretRevealed>,
     asset_server: ResMut<AssetServer>,
-    mut emoji_event: EventWriter<EmojiBurst>,
+    mut emoji_event: MessageWriter<EmojiBurst>,
 ) {
     commands.spawn((
         Node {
@@ -40,7 +41,7 @@ fn show_game_over(
             justify_content: JustifyContent::Center,
             ..default()
         },
-        StateScoped(GameState::GameOver),
+        DespawnOnExit(GameState::GameOver),
         GameOverScreen,
         BackgroundColor(Color::srgba(0.08, 0.03, 0.05, 0.3)), // overlay
         TimerComp(Timer::from_seconds(8.0, TimerMode::Once)),
@@ -67,7 +68,7 @@ fn fade_in_game_over(
     mut screen: Single<(&mut BackgroundColor, &TimerComp), With<GameOverScreen>>,
     mut player: Single<&mut Transform, With<Player>>,
 ) {
-    if screen.1.0.finished() {
+    if screen.1.0.is_finished() {
         next_state.set(GameState::Menu);
     }
     // fade in animation

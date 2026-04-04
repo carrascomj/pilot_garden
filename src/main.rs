@@ -1,11 +1,11 @@
 //! Entry point of the game, call the other plugins, load some main scenes from
 //! GLTF and tag specific GLTF entities based with components based on their names.
 use bevy::{
+    ecs::message::MessageWriter,
     pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
-    render::render_resource::{
-        AsBindGroup, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
-    },
+    render::render_resource::{AsBindGroup, RenderPipelineDescriptor, SpecializedMeshPipelineError},
+    shader::ShaderRef,
 };
 use menu::GameMenu;
 use std::{f32::consts::TAU, time::Duration};
@@ -155,7 +155,7 @@ fn setup_colliders_above(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>
         let cub = Cuboid::new(half_x, GROUND_Y * mult_y, half_z);
         let cub_transform = Transform::from_xyz(x, y, z);
         let cub_collider = Collider::from((&cub, &cub_transform));
-        commands.spawn((cub_transform, cub_collider, StateScoped(GameState::Above)));
+        commands.spawn((cub_transform, cub_collider, DespawnOnExit(GameState::Above)));
     }
     let (half_x, half_z, x, z, mult_y, y) = (38.0, 2.0, 11.0, 10.0, 30., -20.0);
 
@@ -165,7 +165,7 @@ fn setup_colliders_above(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>
     commands.spawn((
         Mesh3d(meshes.add(cub)),
         cub_transform,
-        StateScoped(GameState::Above),
+        DespawnOnExit(GameState::Above),
     ));
 }
 
@@ -218,7 +218,7 @@ fn setup_colliders_below(mut commands: Commands) {
         let cub_transform = Transform::from_xyz(x, y, z);
         let cub_collider = Collider::from((&cub, &cub_transform));
 
-        commands.spawn((cub_transform, cub_collider, StateScoped(GameState::Below)));
+        commands.spawn((cub_transform, cub_collider, DespawnOnExit(GameState::Below)));
     }
 }
 
@@ -227,7 +227,7 @@ fn transit_to_below(
     mut commands: Commands,
     mut next_state: ResMut<NextState<GameState>>,
     mut secret_rev: ResMut<SecretRevealed>,
-    mut ambient_light: ResMut<AmbientLight>,
+    mut ambient_light: ResMut<GlobalAmbientLight>,
     player: Single<&Transform, With<Player>>,
     main_scenes: Query<Entity, With<MainScene>>,
 ) {
@@ -350,7 +350,7 @@ fn setup_below(
                 ..default()
             },
             Transform::from_xyz(26.0, -20.0, 76.4),
-            StateScoped(GameState::Below),
+            DespawnOnExit(GameState::Below),
         ),
         (
             PointLight {
@@ -367,7 +367,7 @@ fn setup_below(
                 ..default()
             },
             Transform::from_xyz(30.0, -21.4, -3.8),
-            StateScoped(GameState::Below),
+            DespawnOnExit(GameState::Below),
         ),
         (
             PointLight {
@@ -384,7 +384,7 @@ fn setup_below(
                 ..default()
             },
             Transform::from_xyz(30.0, -21.4, -11.8),
-            StateScoped(GameState::Below),
+            DespawnOnExit(GameState::Below),
         ),
         (
             PointLight {
@@ -401,7 +401,7 @@ fn setup_below(
                 ..default()
             },
             Transform::from_xyz(27.0, -15., 7.8),
-            StateScoped(GameState::Below),
+            DespawnOnExit(GameState::Below),
         ),
         (
             PointLight {
@@ -418,7 +418,7 @@ fn setup_below(
                 ..default()
             },
             Transform::from_xyz(23.56, -15., -7.75),
-            StateScoped(GameState::Below),
+            DespawnOnExit(GameState::Below),
         ),
     ]);
 }
@@ -555,7 +555,7 @@ fn tag_gltf_on_add(
                     KillerHead,
                     laser_timer,
                     killer_timer,
-                    StateScoped(GameState::Above),
+                    DespawnOnExit(GameState::Above),
                 ));
             }
             "fakebush" => {
@@ -662,7 +662,7 @@ impl BoneAudio {
 
 fn trigger_main_bone_animation(
     player: Single<&Transform, With<Player>>,
-    mut audio_event: EventWriter<AudioStart>,
+    mut audio_event: MessageWriter<AudioStart>,
     mut transforms: Query<
         (&GlobalTransform, &mut MainBone, &mut TimerComp, &BoneAudio),
         Without<Player>,
@@ -675,7 +675,7 @@ fn trigger_main_bone_animation(
             .distance_squared(transform.translation)
             < BUMP_DISTANCE
         {
-            if timer.0.finished() && main_bone.active {
+            if timer.0.is_finished() && main_bone.active {
                 timer.0.unpause();
                 timer.0.reset();
                 audio_event.write(bone_audio.to_audio());
@@ -694,7 +694,7 @@ fn animate_main_bone(mut bones: Query<(&mut Transform, &MainBone, &TimerComp)>) 
     const DECAY: f32 = 2.5; // bigger -> stops sooner
 
     for (mut transform, bone, timer) in &mut bones {
-        if !timer.0.finished() {
+        if !timer.0.is_finished() {
             let u = timer.0.fraction();
             // damped wobble: sin curve multiplied by an exponential decay
             let angle = AMP * (TAU * FREQ * u).sin() * (-DECAY * u).exp();
@@ -718,9 +718,9 @@ impl Material for CapsuleMaterial {
     }
 
     fn specialize(
-        _: &MaterialPipeline<Self>,
+        _: &MaterialPipeline,
         descriptor: &mut RenderPipelineDescriptor,
-        _: &bevy::render::mesh::MeshVertexBufferLayoutRef,
+        _: &bevy::mesh::MeshVertexBufferLayoutRef,
         _: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         descriptor.primitive.cull_mode = None; // draw both faces

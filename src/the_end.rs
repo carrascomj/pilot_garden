@@ -52,7 +52,7 @@ fn move_to_end_screen(
     // end scene
     commands.spawn((
         SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset("end_screen.glb"))),
-        StateScoped(GameState::EndScreen),
+        DespawnOnExit(GameState::EndScreen),
     ));
     // hardcoded from blender
     let p0 = Vec3::new(-36.675315856933594, -26.088350296020508, 110.93441772460938);
@@ -75,7 +75,7 @@ fn move_to_end_screen(
         },
         Transform::from_xyz(p0.x + 40., p2.y, 160.)
             .looking_at(Vec3::new(p2.x - 20., p0.y, p2.z), Vec3::NEG_Y),
-        StateScoped(GameState::EndScreen),
+        DespawnOnExit(GameState::EndScreen),
     ));
 
     // UI for flash (blinded from outside light)
@@ -93,7 +93,7 @@ fn move_to_end_screen(
         },
         FlashScreen(Timer::from_seconds(4.0, TimerMode::Once)),
         BackgroundColor(Color::WHITE),
-        StateScoped(GameState::EndScreen),
+        DespawnOnExit(GameState::EndScreen),
     ));
     // UI for showing the end screen
     commands.spawn((
@@ -107,7 +107,7 @@ fn move_to_end_screen(
         },
         FadeOut,
         BackgroundColor(Color::BLACK.with_alpha(0.)),
-        StateScoped(GameState::EndScreen),
+        DespawnOnExit(GameState::EndScreen),
         children![(
             Text::new("The End"),
             TextFont {

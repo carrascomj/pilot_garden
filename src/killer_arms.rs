@@ -1,8 +1,14 @@
 //! Mechanic for killer arms that appear at night at kill the player.
 
-use bevy::{ecs::query::QueryFilter, prelude::*};
+use bevy::{
+    ecs::{
+        message::{MessageReader, MessageWriter},
+        query::QueryFilter,
+    },
+    prelude::*,
+};
 use bevy_mod_inverse_kinematics::{IkConstraint, InverseKinematicsPlugin};
-use std::collections::HashMap;
+use std::{collections::HashMap, f32::consts::FRAC_PI_2};
 
 use crate::{
     audio::AudioStart,
@@ -16,9 +22,19 @@ use crate::{
 
 pub struct KillerArmPlugin;
 
+const KILLER_ARM_IK_CHAIN_LENGTH: usize = 11;
+const KILLER_ARM_IK_ITERATIONS: usize = 32;
+
+#[derive(Resource, Default)]
+struct MoveToImpactState {
+    audio_played: bool,
+    game_over_triggered: bool,
+}
+
 impl Plugin for KillerArmPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(InverseKinematicsPlugin)
+            .init_resource::<MoveToImpactState>()
             .add_systems(OnEnter(GameState::Above), spawn_killing_arm)
             .add_systems(
                 Update,
@@ -34,7 +50,7 @@ impl Plugin for KillerArmPlugin {
                     .run_if(in_state(GameState::Above)),
             )
             .add_systems(Update, move_to)
-            .add_event::<BeamOrder>()
+            .add_message::<BeamOrder>()
             .init_resource::<ShowDots>();
     }
 }
@@ -60,7 +76,6 @@ struct KillerArm;
 struct MoveTo {
     to: Vec3,
     will_kill: bool,
-    sounds_played: u8,
 }
 
 fn spawn_killing_arm(
@@ -80,11 +95,10 @@ fn spawn_killing_arm(
     let killer_arm = (*killerarm_handle)
         .as_ref()
         .expect("This is always loaded before");
-    for killer_position in [
-        Vec3::new(12., 6., -22.),
-        // Vec3::new(-4., 8., 26.),
-        Vec3::new(39., 5.5, 0.),
-        Vec3::new(-19., 5.5, 0.),
+    for (killer_position, rot_z) in [
+        (Vec3::new(12., 6., -22.), 0.0),
+        (Vec3::new(39., 5.5, 0.), -FRAC_PI_2),
+        (Vec3::new(-19., 5.5, 0.), FRAC_PI_2),
     ] {
         let show_time = 25.;
         let mut timer = TimerComp::from_elapsed(show_time);
@@ -92,9 +106,9 @@ fn spawn_killing_arm(
         let init_pos = killer_position - (Vec3::Y * 100.);
         commands.spawn((
             SceneRoot(killer_arm.clone()),
-            StateScoped(GameState::Above),
+            DespawnOnExit(GameState::Above),
             KillerArm,
-            Transform::from_translation(init_pos),
+            Transform::from_translation(init_pos).with_rotation(Quat::from_rotation_y(rot_z)),
             timer,
             ShowOnAlarmTime::as_false(),
             Dodgy {
@@ -119,12 +133,12 @@ fn setup_inverse_kinematics(
             for child in children {
                 if let Ok(ik_bone) = find_entity(*child, "ik_target", parents, names) {
                     commands.entity(ik_bone).insert(IkConstraint {
-                        chain_length: 11,
-                        iterations: 300,
+                        chain_length: KILLER_ARM_IK_CHAIN_LENGTH,
+                        iterations: KILLER_ARM_IK_ITERATIONS,
                         target: killer_bone,
                         pole_target: None,
                         pole_angle: -std::f32::consts::FRAC_PI_2,
-                        enabled: true,
+                        enabled: false,
                     });
                 }
             }
@@ -164,9 +178,15 @@ fn point_at_player(
 ) {
     for (mut point, parent) in &mut killer_points {
         if let Ok(parent_trans) = parents.get(parent.0) {
-            // substract parent
-            let look_at = player.translation - parent_trans.translation();
-            *point = point.with_translation(look_at).looking_at(look_at, Vec3::Y);
+            // Convert the world-space player position into the local space of the
+            // point's parent so the IK target respects the arm root rotation.
+            let local_target = parent_trans
+                .affine()
+                .inverse()
+                .transform_point3(player.translation);
+            *point = point
+                .with_translation(local_target)
+                .looking_at(local_target, Vec3::Y);
         }
     }
 }
@@ -190,7 +210,7 @@ fn activate_lasers(
         (With<KillerArm>, Without<KillerHead>),
     >,
     mut killer_heads: Query<
-        (&mut TimerComp, &mut KillerTimer),
+        (&mut TimerComp, &mut KillerTimer, &mut IkConstraint),
         (With<KillerHead>, Without<KillerArm>),
     >,
     parents: Query<&Children>,
@@ -202,14 +222,15 @@ fn activate_lasers(
                 if let Ok(down_children) = parents.get(*child) {
                     for down_child in down_children {
                         if let Ok(ik_bone) = find_entity(*down_child, "ik_target", parents, names) {
-                            if let Ok((mut laser_timer, mut killer_timer)) =
+                            if let Ok((mut laser_timer, mut killer_timer, mut ik_constraint)) =
                                 killer_heads.get_mut(ik_bone)
                             {
-                                if laser_timer.0.paused() {
+                                if laser_timer.0.is_paused() {
                                     laser_timer.0.unpause();
                                     laser_timer.0.reset();
                                     killer_timer.timer.unpause();
                                     killer_timer.can_kill = true;
+                                    ik_constraint.enabled = true;
                                 }
                             }
                         }
@@ -241,11 +262,17 @@ fn spawn_laser_meshes(
 
 fn draw_lasers(
     mut ray_cast: MeshRayCast,
-    mut ev_beam_order: EventWriter<BeamOrder>,
+    mut ev_beam_order: MessageWriter<BeamOrder>,
     mut show_dots: ResMut<ShowDots>,
     time: Res<Time>,
     mut killer_points: Query<
-        (Entity, &GlobalTransform, &TimerComp, &mut KillerTimer),
+        (
+            Entity,
+            &GlobalTransform,
+            &TimerComp,
+            &mut KillerTimer,
+            &mut IkConstraint,
+        ),
         (With<KillerHead>, Without<Player>),
     >,
     player: Single<(Entity, &GlobalTransform), (With<Player>, Without<KillerPoint>)>,
@@ -270,7 +297,7 @@ fn draw_lasers(
         beam_for_head.insert(source.head, beam_entity);
     }
 
-    for (head_entity, trans, timer, mut killer_timer) in &mut killer_points {
+    for (head_entity, trans, timer, mut killer_timer, mut ik_constraint) in &mut killer_points {
         let Some(beam_entity) = beam_for_head.get(&head_entity) else {
             continue;
         };
@@ -280,10 +307,13 @@ fn draw_lasers(
             continue;
         };
 
-        if !timer.0.finished() || !killer_timer.can_kill {
+        if !timer.0.is_finished() || !killer_timer.can_kill {
             *beam_visibility = Visibility::Hidden;
-            if !killer_timer.timer.finished() {
+            if !killer_timer.timer.is_finished() {
                 killer_timer.timer.tick(time.delta());
+            }
+            if !killer_timer.can_kill {
+                ik_constraint.enabled = false;
             }
             continue;
         }
@@ -294,7 +324,7 @@ fn draw_lasers(
         let ray_dir = (end - start).normalize_or_zero();
         if ray_dir == Vec3::ZERO {
             *beam_visibility = Visibility::Hidden;
-            if !killer_timer.timer.finished() {
+            if !killer_timer.timer.is_finished() {
                 killer_timer.timer.tick(time.delta());
             }
             continue;
@@ -308,7 +338,7 @@ fn draw_lasers(
             let beam_dir = (hit.point - ray_pos).normalize_or_zero();
             if beam_dir == Vec3::ZERO {
                 *beam_visibility = Visibility::Hidden;
-                if !killer_timer.timer.finished() {
+                if !killer_timer.timer.is_finished() {
                     killer_timer.timer.tick(time.delta());
                 }
                 continue;
@@ -332,6 +362,7 @@ fn draw_lasers(
                     will_kill = true;
                 }
                 killer_timer.can_kill = false;
+                ik_constraint.enabled = false;
             }
             // check if UI should show direction of lasers
             if *target_entity == player.0 {
@@ -353,7 +384,7 @@ fn draw_lasers(
         } else {
             *beam_visibility = Visibility::Hidden;
         }
-        if !killer_timer.timer.finished() {
+        if !killer_timer.timer.is_finished() {
             killer_timer.timer.tick(time.delta());
         }
     }
@@ -398,7 +429,7 @@ fn show_dots_lasers(show_dots: Res<ShowDots>, mut ui_dots: Query<(&mut Visibilit
     }
 }
 
-#[derive(Event)]
+#[derive(Message)]
 struct BeamOrder {
     from: Vec3,
     to: Vec3,
@@ -407,25 +438,30 @@ struct BeamOrder {
 
 fn spawn_killing_beam(
     mut commands: Commands,
-    mut ev_beam_order: EventReader<BeamOrder>,
+    mut ev_beam_order: MessageReader<BeamOrder>,
+    mut impact_state: ResMut<MoveToImpactState>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     // state to handle mesh and materials across runs
     mut handles: Local<(Option<Handle<Mesh>>, Option<Handle<StandardMaterial>>)>,
 ) {
+    let mut spawned_any = false;
     for BeamOrder {
         from, // Vec3
         to,   // Vec3
         will_kill,
     } in ev_beam_order.read()
     {
+        spawned_any = true;
         if let (None, None) = *handles {
             handles.0 = Some(meshes.add(Sphere::new(0.05)));
             handles.1 = Some(materials.add(StandardMaterial {
-                base_color: MAGENTA.with_alpha(0.9),
-                diffuse_transmission: 0.1,
+                base_color: MAGENTA.with_alpha(0.22),
+                emissive: LinearRgba::rgb(2.0, 0.3, 1.4),
                 alpha_mode: AlphaMode::Blend,
-                // emissive: LinearRgba::rgb(2.00, 0.6, 1.8),
+                unlit: true,
+                double_sided: true,
+                cull_mode: None,
                 ..default()
             }));
         }
@@ -435,38 +471,43 @@ fn spawn_killing_beam(
             MoveTo {
                 to: *to,
                 will_kill: *will_kill,
-                sounds_played: 0,
             },
             Mesh3d(handles.0.as_ref().expect("works").clone()),
             MeshMaterial3d(handles.1.as_ref().expect("works").clone()),
         ));
+    }
+    if spawned_any {
+        impact_state.audio_played = false;
+        impact_state.game_over_triggered = false;
     }
 }
 
 fn move_to(
     mut commands: Commands,
     mut next_state: ResMut<NextState<GameState>>,
-    mut audio_event: EventWriter<AudioStart>,
+    mut audio_event: MessageWriter<AudioStart>,
     time: Res<Time>,
-    mut transforms: Populated<(Entity, &mut Transform, &mut MoveTo)>,
+    mut impact_state: ResMut<MoveToImpactState>,
+    mut transforms: Populated<(Entity, &mut Transform, &MoveTo)>,
 ) {
     let delta = time.delta_secs();
     const BEAM_SPEED: f32 = 20.;
-    for (entity, mut trans, mut move_to) in transforms.iter_mut() {
+    for (entity, mut trans, move_to) in transforms.iter_mut() {
         let dir = trans.translation - move_to.to;
         let distance = dir.length_squared();
         if distance > 0.05 {
             trans.translation -= dir.normalize() * delta * BEAM_SPEED;
         } else {
-            if move_to.will_kill {
+            if move_to.will_kill && !impact_state.game_over_triggered {
                 next_state.set(GameState::GameOver);
+                impact_state.game_over_triggered = true;
             }
         }
         if distance < 0.08 {
             trans.scale += delta * 25.;
-            if move_to.sounds_played < 2 {
+            if !impact_state.audio_played {
                 audio_event.write(AudioStart::Laser);
-                move_to.sounds_played += 1;
+                impact_state.audio_played = true;
             }
         }
         if trans.scale.x > 85. {

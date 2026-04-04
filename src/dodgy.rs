@@ -2,7 +2,11 @@
 
 use std::ops::Deref;
 
-use bevy::{prelude::*, render::view::VisibilitySystems};
+use bevy::{
+    camera::visibility::VisibilitySystems,
+    ecs::{message::MessageReader, observer::On},
+    prelude::*,
+};
 
 use crate::config::{GameState, MAX_CROP_BOUNDS, MIN_CROP_BOUNDS};
 use crate::digging::{Life, Minable, SeedsPlaced};
@@ -115,7 +119,7 @@ fn activate_dodge(
 
 fn animate_dodge(mut dodgers: Query<(&mut Transform, &Dodgy, &TimerComp)>) {
     for (mut trans, dodger, timer) in &mut dodgers {
-        if !timer.0.finished() && !timer.0.paused() {
+        if !timer.0.is_finished() && !timer.0.is_paused() {
             let u = timer.0.fraction();
             trans.translation = u * dodger.last_pos + (1. - u) * dodger.init_pos;
         }
@@ -150,7 +154,7 @@ fn setup_banana_on_plate(mut commands: Commands, asset_server: Res<AssetServer>)
 fn spawn_banana_on_plate(mut commands: Commands, banana_scene: Res<BananaScene>) {
     commands.spawn((
         BananaOnPlate,
-        StateScoped(GameState::Above),
+        DespawnOnExit(GameState::Above),
         Transform::from_xyz(10.1080, 2.254, 8.2921).with_rotation(Quat::from_scaled_axis(
             Vec3::new(0., (225f32).to_radians(), 0.2),
         )),
@@ -162,13 +166,13 @@ fn spawn_banana_on_plate(mut commands: Commands, banana_scene: Res<BananaScene>)
 ///
 /// (A bananite is a banana ore.)
 fn spawn_banana_on_bananite_depletion(
-    trigger: Trigger<OnRemove, Bananite>,
+    trigger: On<Remove, Bananite>,
     mut gaussian: ResMut<GaussianNoise>,
     banana_scene: Res<BananaScene>,
     mut commands: Commands,
     bananite_query: Query<&Transform>,
 ) {
-    let entity = trigger.target();
+    let entity = trigger.event_target();
     if let Ok(trans) = bananite_query.get(entity) {
         let init_pos = trans.translation;
         let peak_y = 5.0;
@@ -201,7 +205,7 @@ fn arch_bezier(from: f32, to: f32, peak: f32, u: f32) -> f32 {
 
 fn animate_arch(mut dodgers: Populated<(&mut Transform, &ArchAnimation, &TimerComp)>) {
     for (mut trans, arch, timer) in dodgers.iter_mut() {
-        if !timer.0.finished() && !timer.0.paused() {
+        if !timer.0.is_finished() && !timer.0.is_paused() {
             let u = timer.0.fraction();
             let mut next_translation = u * arch.last_pos + (1. - u) * arch.init_pos;
             next_translation.y = arch_bezier(arch.init_pos.y, arch.last_pos.y, arch.peak_y, u);
@@ -246,7 +250,7 @@ fn spawn_bananite(
 
 fn plant_bananite_on_seeds(
     mut commands: Commands,
-    mut seeds_event: EventReader<SeedsPlaced>,
+    mut seeds_event: MessageReader<SeedsPlaced>,
     asset_server: Res<AssetServer>,
 ) {
     for ev in seeds_event.read() {

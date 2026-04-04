@@ -5,7 +5,7 @@ use std::{
     time::Duration,
 };
 
-use bevy::{core_pipeline::Skybox, prelude::*, render::view::NoFrustumCulling};
+use bevy::{camera::visibility::NoFrustumCulling, core_pipeline::Skybox, prelude::*};
 
 use crate::{
     Capsule, ToolBench,
@@ -122,7 +122,7 @@ fn spawn_sun(
 
     commands
         .spawn((
-            StateScoped(GameState::Above),
+            DespawnOnExit(GameState::Above),
             Transform::from_translation(init_pos).looking_at(Vec3::X * 10.0, Vec3::NEG_Y),
             TimerComp(Timer::new(
                 Duration::from_secs(day_secs as u64),
@@ -137,7 +137,7 @@ fn spawn_sun(
         .with_child((light, NoFrustumCulling));
     // only for the night
     commands.spawn((
-        StateScoped(GameState::Above),
+        DespawnOnExit(GameState::Above),
         NightTimer,
         TimerComp(Timer::new(
             Duration::from_secs((day_secs * 0.48) as u64),
@@ -184,7 +184,7 @@ fn spawn_sun(
                 go_back: false,
                 ignore_viewing: false,
             },
-            StateScoped(GameState::Above),
+            DespawnOnExit(GameState::Above),
             ShowOnAlarmTime::as_false(),
             // since the light would disappear if not looking at it
             timer,

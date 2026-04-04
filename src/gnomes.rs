@@ -2,6 +2,7 @@
 
 use std::{f32::consts::PI, time::Duration};
 
+use bevy::ecs::message::MessageWriter;
 use bevy::prelude::*;
 
 use crate::{
@@ -317,8 +318,8 @@ fn move_gnome(
     animations: Res<Animations>,
     mut next_game_state: ResMut<NextState<GameState>>,
     mut killed_player: ResMut<KilledPlayer>,
-    mut light_switch_event: EventWriter<TurnTheLights>,
-    mut audio_event: EventWriter<AudioStart>,
+    mut light_switch_event: MessageWriter<TurnTheLights>,
+    mut audio_event: MessageWriter<AudioStart>,
     mut gnomes: Query<(&mut GnomeMachine, &HasAnimationChild, &mut Transform)>,
     mut animation_players: Query<(&mut AnimationPlayer, &mut AnimationTransitions)>,
     player_transform: Query<&Transform, (With<Player>, Without<GnomeMachine>)>,
@@ -365,7 +366,7 @@ fn move_gnome(
         // handle movement (only across x, z axis)
         match &mut gnome.state {
             GnomeState::Moving { timer, spline } => {
-                if !timer.finished() {
+                if !timer.is_finished() {
                     timer.tick(time.delta());
                     let u = timer.fraction(); // [0,1]
                     // let t = u * spline.segments().len() as f32;
@@ -432,7 +433,7 @@ fn move_gnome(
                 }
             }
             GnomeState::DroppingBanana(timer) => {
-                if !timer.finished() {
+                if !timer.is_finished() {
                     timer.tick(time.delta());
                     let Ok(target) = player_transform.single() else {
                         continue;
@@ -467,7 +468,7 @@ fn move_gnome(
                     *already_looking = player_looking || player_trying_to_flee;
                     continue;
                 }
-                if !timer.finished() {
+                if !timer.is_finished() {
                     // wait for  dramatic effect
                     timer.tick(time.delta());
                 } else {
@@ -478,7 +479,7 @@ fn move_gnome(
             }
             GnomeState::WaitingToDie(timer) => {
                 timer.tick(time.delta());
-                if timer.finished() {
+                if timer.is_finished() {
                     audio_event.write(AudioStart::GnomeDying);
                     gnome.next_state();
                 }

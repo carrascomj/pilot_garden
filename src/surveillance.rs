@@ -6,10 +6,11 @@ use std::{
 };
 
 use bevy::{
+    asset::RenderAssetUsages,
+    camera::{CameraOutputMode, Exposure, RenderTarget},
+    ecs::message::{MessageReader, MessageWriter},
     prelude::*,
     render::{
-        camera::{CameraOutputMode, Exposure},
-        render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages},
     },
 };
@@ -30,8 +31,8 @@ pub struct SurveillancePlugin;
 impl Plugin for SurveillancePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<RenderMaterials>()
-            .add_event::<ButtonActivated>()
-            .add_event::<TurnTheLights>()
+            .add_message::<ButtonActivated>()
+            .add_message::<TurnTheLights>()
             .add_systems(
                 OnEnter(GameState::Below),
                 (setup_surveillance_camera, setup_spotlights_below),
@@ -236,11 +237,11 @@ fn link_screens_to_above(
                 Camera3d::default(),
                 Exposure { ev100: 4. },
                 Camera {
-                    target: image_handle.into(),
                     clear_color: Color::WHITE.into(),
                     is_active: false,
                     ..default()
                 },
+                RenderTarget::Image(image_handle.into()),
                 cam_trans,
             ));
         }
@@ -295,10 +296,10 @@ fn setup_surveillance_camera(
         GameOverRemove,
         Camera3d::default(),
         Camera {
-            target: image_handle.clone().into(),
             clear_color: Color::WHITE.into(),
             ..default()
         },
+        RenderTarget::Image(image_handle.clone().into()),
         LookingAtButton,
         // looking at the central big screen
         Transform::from_xyz(-55., -20., 86.).looking_at(Vec3::new(-67., -25., 80.), Vec3::Y),
@@ -355,7 +356,7 @@ fn take_snapshots(
         snap_timer.take_timer.reset();
         snap_timer.no_snapshot.reset();
     }
-    if !snap_timer.take_timer.finished() {
+    if !snap_timer.take_timer.is_finished() {
         for mut cam in &mut sur_cameras {
             if !cam.is_active {
                 cam.is_active = true;
@@ -396,14 +397,14 @@ fn setup_spotlights_below(mut commands: Commands) {
     ));
 }
 
-#[derive(Event)]
+#[derive(Message)]
 /// Big button below that
 ///
 /// * [x] activates the lights;
 /// * [x] changes cameras; and
 /// * [x] activates gnomes.
 pub struct ButtonActivated;
-#[derive(Event)]
+#[derive(Message)]
 pub enum TurnTheLights {
     On,
     Off,
@@ -411,8 +412,8 @@ pub enum TurnTheLights {
 
 /// Make the big screens show the camera looking at the player.
 fn show_player_on_screen(
-    mut button_reader: EventReader<ButtonActivated>,
-    mut light_switch_writer: EventWriter<TurnTheLights>,
+    mut button_reader: MessageReader<ButtonActivated>,
+    mut light_switch_writer: MessageWriter<TurnTheLights>,
     mut commands: Commands,
     render_materials: Res<RenderMaterials>,
     mut big_screens: Query<Entity, With<BigScreen>>,
@@ -434,11 +435,11 @@ fn show_player_on_screen(
 fn switch_lights(
     mut commands: Commands,
     time: Res<Time>,
-    mut ligth_switch_reader: EventReader<TurnTheLights>,
-    mut audio_event: EventWriter<AudioStart>,
+    mut ligth_switch_reader: MessageReader<TurnTheLights>,
+    mut audio_event: MessageWriter<AudioStart>,
     mut lights: Query<(&mut Visibility, &mut SwitchableLight)>,
     mut gnomes: Query<&mut GnomeMachine>,
-    mut ambient_light: ResMut<AmbientLight>,
+    mut ambient_light: ResMut<GlobalAmbientLight>,
     drums_audio: Query<Entity, With<DrumsToStop>>,
 ) {
     for (mut light, mut timer) in &mut lights {
@@ -466,7 +467,7 @@ fn switch_lights(
                 audio_event.write(AudioStart::SwitchOn);
             }
         }
-        if !timer.0.finished() {
+        if !timer.0.is_finished() {
             let u = match *light {
                 Visibility::Visible => timer.0.fraction() + 0.05,
                 _ => timer.0.fraction_remaining() - 0.05,
