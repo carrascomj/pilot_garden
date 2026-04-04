@@ -248,6 +248,8 @@ fn transit_to_below(
 #[derive(Component)]
 pub struct Capsule {
     pub active: bool,
+    pub shown_pos: Vec3,
+    pub hidden_pos: Vec3,
 }
 /// Marker for main scene to respawn it if it does not exist.
 #[derive(Component)]
@@ -302,11 +304,16 @@ fn setup_shared_meshes(
     mut materials: ResMut<Assets<CapsuleMaterial>>,
 ) {
     const POS: Vec3 = Vec3::new(-6.0, 3.0, 8.0);
+    let hidden_pos = POS - Vec3::Y * 10.0;
     commands.spawn((
         Mesh3d(meshes.add(Cylinder::new(1., 4.))),
         MeshMaterial3d(materials.add(CapsuleMaterial {})),
         Transform::from_translation(POS).with_rotation(Quat::from_rotation_y(3.14)),
-        Capsule { active: false },
+        Capsule {
+            active: false,
+            shown_pos: POS,
+            hidden_pos,
+        },
     ));
     commands.spawn(SceneRoot(
         asset_server.load(GltfAssetLabel::Scene(0).from_asset("shared.glb")),
@@ -430,6 +437,9 @@ pub struct SomeLights;
 #[derive(Component)]
 pub struct ToolBench;
 
+pub const TOOL_BENCH_VISIBLE_POS: Vec3 = Vec3::ZERO;
+pub const TOOL_BENCH_HIDDEN_POS: Vec3 = Vec3::new(0.0, -11.0, 0.0);
+
 fn spawn_tool_bench(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -449,17 +459,15 @@ fn spawn_tool_bench(
     // spawn the tools
     let mut timer = TimerComp::from_elapsed(2.5);
     timer.0.pause();
-    // this is the initial position of the scene
-    // the tooltip inside the scene is put to match bush.gltf
-    let init_pos = Vec3::new(0., 0., 0.);
     commands.spawn((
         SceneRoot(tooltip.clone()),
         timer,
+        Transform::from_translation(TOOL_BENCH_VISIBLE_POS),
         ToolBench,
         ShowOnAlarmTime::as_false(),
         Dodgy {
-            init_pos,
-            last_pos: init_pos - Vec3::Y * 11.,
+            init_pos: TOOL_BENCH_VISIBLE_POS,
+            last_pos: TOOL_BENCH_HIDDEN_POS,
             go_back: false,
             ignore_viewing: false,
         },

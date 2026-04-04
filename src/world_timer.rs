@@ -8,7 +8,7 @@ use std::{
 use bevy::{camera::visibility::NoFrustumCulling, core_pipeline::Skybox, prelude::*};
 
 use crate::{
-    Capsule, ToolBench,
+    Capsule, TOOL_BENCH_HIDDEN_POS, TOOL_BENCH_VISIBLE_POS, ToolBench,
     config::GameState,
     dodgy::{ArchAnimation, Dodgy},
     killer_arms::KillerHead,
@@ -32,7 +32,6 @@ impl Plugin for DayNightPlugin {
                     lit_lamps,
                     sleep_in_capsule,
                     restart_day,
-                    respawn_tooltip,
                 )
                     .run_if(in_state(GameState::Above)),
             )
@@ -93,6 +92,25 @@ impl ShowOnAlarmTime {
             swap_pos: false,
         }
     }
+}
+
+fn spawn_replenished_tool_bench(commands: &mut Commands, tooltip: Handle<Scene>) {
+    commands.spawn((
+        SceneRoot(tooltip),
+        TimerComp(Timer::from_seconds(2.5, TimerMode::Once)),
+        Transform::from_translation(TOOL_BENCH_HIDDEN_POS),
+        ToolBench,
+        ShowOnAlarmTime {
+            show: false,
+            swap_pos: true,
+        },
+        Dodgy {
+            init_pos: TOOL_BENCH_HIDDEN_POS,
+            last_pos: TOOL_BENCH_VISIBLE_POS,
+            go_back: false,
+            ignore_viewing: false,
+        },
+    ));
 }
 
 #[derive(Component)]
@@ -308,7 +326,7 @@ fn show_alarm(
         ),
         Without<NightTimer>,
     >,
-    mut capsule: Single<(Entity, &Transform, &mut Capsule)>,
+    mut capsule: Single<(Entity, &mut Transform, &mut Capsule)>,
 ) {
     let Ok(alarm) = timer.single() else {
         return;
@@ -331,16 +349,20 @@ fn show_alarm(
             }
         }
         // show capsule.
+        capsule.1.translation = capsule.2.hidden_pos;
         let mut cmd = commands.entity(capsule.0);
         cmd.remove::<TimerComp>();
+        cmd.remove::<Dodgy>();
         cmd.remove::<ArchAnimation>();
-        let trans = capsule.1.translation;
-        cmd.insert(Dodgy {
-            init_pos: trans,
-            last_pos: trans + Vec3::Y * 10.,
-            go_back: false,
-            ignore_viewing: false,
-        });
+        cmd.insert((
+            TimerComp(Timer::from_seconds(2.5, TimerMode::Once)),
+            Dodgy {
+                init_pos: capsule.2.hidden_pos,
+                last_pos: capsule.2.shown_pos,
+                go_back: false,
+                ignore_viewing: false,
+            },
+        ));
         capsule.2.active = true;
     }
 }
@@ -421,10 +443,12 @@ fn oscillate_pointlight(time: Res<Time>, mut lamps: Query<(&Visibility, &mut Poi
 /// * Laser Timers are restarted.
 fn restart_day(
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
     sun_timer: Single<&TimerComp, (With<Sun>, Without<NightTimer>, Without<KillerHead>)>,
     mut night_timer: Single<&mut TimerComp, (With<NightTimer>, Without<Sun>, Without<KillerHead>)>,
     mut dodgers: Query<
         (
+            Entity,
             &mut TimerComp,
             &mut ShowOnAlarmTime,
             &mut Dodgy,
@@ -434,23 +458,29 @@ fn restart_day(
         (Without<NightTimer>, Without<Sun>, Without<KillerHead>),
     >,
     mut lamps: Query<&mut Visibility, (With<SpotLight>, With<OnlyOnNight>)>,
-    mut capsule: Single<(Entity, &Transform, &mut Capsule)>,
+    mut capsule: Single<(Entity, &mut Transform, &mut Capsule)>,
     mut killers: Query<&mut TimerComp, (With<KillerHead>, Without<NightTimer>, Without<Sun>)>,
+    mut tooltip_handle: Local<Option<Handle<Scene>>>,
 ) {
     if sun_timer.0.just_finished() {
         night_timer.0.reset();
+        if tooltip_handle.is_none() {
+            *tooltip_handle = Some(asset_server.load(GltfAssetLabel::Scene(0).from_asset("tools.glb")));
+        }
         // hide all dodgy elements that where shown on sun (`ShowOnAlarmTime`)
-        for (mut timer, mut show, mut dodgy, children, maybe_tools) in &mut dodgers {
-            show.show = false;
-            // special case, don't swap for the ToolBench
-            if maybe_tools.is_none() {
-                *dodgy = Dodgy {
-                    init_pos: dodgy.last_pos,
-                    last_pos: dodgy.init_pos,
-                    go_back: dodgy.go_back,
-                    ignore_viewing: dodgy.ignore_viewing,
-                };
+        for (entity, mut timer, mut show, mut dodgy, children, maybe_tools) in &mut dodgers {
+            if maybe_tools.is_some() {
+                commands.entity(entity).despawn();
+                continue;
             }
+
+            show.show = false;
+            *dodgy = Dodgy {
+                init_pos: dodgy.last_pos,
+                last_pos: dodgy.init_pos,
+                go_back: dodgy.go_back,
+                ignore_viewing: dodgy.ignore_viewing,
+            };
 
             // if the show up again, sawp init_pos and last_pos again
             show.swap_pos = true;
@@ -463,16 +493,21 @@ fn restart_day(
                 }
             }
         }
+        spawn_replenished_tool_bench(
+            &mut commands,
+            tooltip_handle.as_ref().expect("tool scene handle initialized").clone(),
+        );
 
         // hide capsule
+        capsule.1.translation = capsule.2.shown_pos;
         let mut cmd = commands.entity(capsule.0);
         cmd.remove::<TimerComp>();
         cmd.remove::<Dodgy>();
-        let trans = capsule.1.translation;
-        commands.entity(capsule.0).insert((
+        cmd.remove::<ArchAnimation>();
+        cmd.insert((
             ArchAnimation {
-                init_pos: trans,
-                last_pos: trans - Vec3::Y * 10.,
+                init_pos: capsule.2.shown_pos,
+                last_pos: capsule.2.hidden_pos,
                 peak_y: 5.,
             },
             TimerComp(Timer::from_seconds(2.0, TimerMode::Once)),
@@ -484,38 +519,5 @@ fn restart_day(
             laser_timer.0.pause();
             laser_timer.0.reset();
         }
-    }
-}
-
-fn respawn_tooltip(
-    mut commands: Commands,
-    existing_tooltip: Single<(Entity, &TimerComp, &ShowOnAlarmTime), With<ToolBench>>,
-    asset_server: Res<AssetServer>,
-    mut tooltip_handle: Local<Option<Handle<Scene>>>,
-) {
-    if existing_tooltip.1.0.just_finished() && existing_tooltip.2.show {
-        if tooltip_handle.is_none() {
-            *tooltip_handle =
-                Some(asset_server.load(GltfAssetLabel::Scene(0).from_asset("tools.glb")));
-        }
-        commands.entity(existing_tooltip.0).despawn();
-        let mut timer = TimerComp::from_elapsed(2.5);
-        timer.0.pause();
-        // this is the initial position of the scene
-        // the tooltip inside the scene is put to match bush.gltf
-        let init_pos = Vec3::new(0., -11., 0.);
-        commands.spawn((
-            SceneRoot((*tooltip_handle).as_ref().expect("works").clone()),
-            timer,
-            Transform::from_translation(init_pos),
-            ToolBench,
-            ShowOnAlarmTime::as_false(),
-            Dodgy {
-                init_pos,
-                last_pos: init_pos + Vec3::Y * 11.,
-                go_back: false,
-                ignore_viewing: false,
-            },
-        ));
     }
 }

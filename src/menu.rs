@@ -279,7 +279,7 @@ fn update_time(
     mut next_state: ResMut<NextState<GameState>>,
     mut ui_materials: ResMut<Assets<HibernationMaterial>>,
     mut state_menu: Single<(Entity, &mut BackgroundColor), With<StartMenu>>,
-    capsule: Single<(Entity, &Transform), With<Capsule>>,
+    mut capsule: Single<(Entity, &mut Transform, &Capsule), With<Capsule>>,
 ) {
     for (_, material) in ui_materials.iter_mut() {
         if material.disolve_time > 0. {
@@ -290,12 +290,13 @@ fn update_time(
             if diff > 5.0 {
                 next_state.set(GameState::Above);
                 commands.entity(state_menu.0).despawn();
-                //  slide the capsule into the floor
-                let trans = capsule.1.translation;
-                commands.entity(capsule.0).insert((
+                // Reset the capsule to its canonical shown position before
+                // animating it back underground for the new day.
+                capsule.1.translation = capsule.2.shown_pos;
+                commands.entity(capsule.0).remove::<Dodgy>().insert((
                     ArchAnimation {
-                        init_pos: trans,
-                        last_pos: trans - Vec3::Y * 10.,
+                        init_pos: capsule.2.shown_pos,
+                        last_pos: capsule.2.hidden_pos,
                         peak_y: 5.,
                     },
                     TimerComp(Timer::from_seconds(2.0, TimerMode::Once)),
