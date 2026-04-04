@@ -10,9 +10,7 @@ use bevy::{
     camera::{CameraOutputMode, Exposure, RenderTarget},
     ecs::message::{MessageReader, MessageWriter},
     prelude::*,
-    render::{
-        render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages},
-    },
+    render::render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages},
 };
 
 use crate::{

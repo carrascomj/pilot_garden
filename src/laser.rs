@@ -2,7 +2,10 @@
 
 use bevy::{
     camera::visibility::NoFrustumCulling,
-    mesh::{primitives::{CylinderAnchor, CylinderMeshBuilder}, MeshVertexBufferLayoutRef},
+    mesh::{
+        MeshVertexBufferLayoutRef,
+        primitives::{CylinderAnchor, CylinderMeshBuilder},
+    },
     pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
     render::render_resource::{
