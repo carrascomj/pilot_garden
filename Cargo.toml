@@ -31,7 +31,7 @@ default = []
 dev_dynamic_linking = ["bevy/dynamic_linking"]
 
 [dependencies]
-bevy = { version = "0.18", features = ["mp3", "file_watcher", "dynamic_linking"] }
+bevy = { version = "0.18", features = ["mp3", "file_watcher"] }
 bevy-inspector-egui = "0.36"
 bevy_mod_inverse_kinematics = "0.11"
 fastrand = "=2.3.0"
