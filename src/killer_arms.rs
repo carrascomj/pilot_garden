@@ -22,6 +22,9 @@ use crate::{
 
 pub struct KillerArmPlugin;
 
+pub const KILLER_ARM_SHOW_SECS: f32 = 25.0;
+pub const KILLER_ARM_FIRE_DELAY_SECS: f32 = 10.0;
+
 const KILLER_ARM_IK_CHAIN_LENGTH: usize = 11;
 const KILLER_ARM_IK_ITERATIONS: usize = 32;
 
@@ -100,8 +103,7 @@ fn spawn_killing_arm(
         (Vec3::new(39., 5.5, 0.), -FRAC_PI_2),
         (Vec3::new(-19., 5.5, 0.), FRAC_PI_2),
     ] {
-        let show_time = 25.;
-        let mut timer = TimerComp::from_elapsed(show_time);
+        let mut timer = TimerComp::from_elapsed(KILLER_ARM_SHOW_SECS);
         timer.0.pause();
         let init_pos = killer_position - (Vec3::Y * 100.);
         commands.spawn((

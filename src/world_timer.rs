@@ -11,7 +11,7 @@ use crate::{
     Capsule, TOOL_BENCH_HIDDEN_POS, TOOL_BENCH_VISIBLE_POS, ToolBench,
     config::GameState,
     dodgy::{ArchAnimation, Dodgy},
-    killer_arms::KillerHead,
+    killer_arms::{KILLER_ARM_FIRE_DELAY_SECS, KILLER_ARM_SHOW_SECS, KillerHead},
     player_movement::Player,
 };
 
@@ -49,6 +49,14 @@ impl Plugin for DayNightPlugin {
 #[derive(Component)]
 pub struct TimerComp(pub Timer);
 
+const LEGACY_DAY_SECS: f32 = 160.0;
+// Preserve the current runtime behavior from the old integer-second NightTimer.
+const NIGHT_START_SECS: f32 = 76.0;
+const POST_FIRE_TAIL_SECS: f32 = 15.0;
+const KILLER_FIRE_SECS: f32 = NIGHT_START_SECS + KILLER_ARM_SHOW_SECS + KILLER_ARM_FIRE_DELAY_SECS;
+const ACTUAL_DAY_SECS: f32 = KILLER_FIRE_SECS + POST_FIRE_TAIL_SECS;
+const COMPRESSED_VISUAL_TAIL_SECS: f32 = LEGACY_DAY_SECS - KILLER_FIRE_SECS;
+
 impl TimerComp {
     pub fn from_elapsed(secs: f32) -> Self {
         let dur = Duration::from_secs_f32(secs);
@@ -61,6 +69,15 @@ impl TimerComp {
 fn advance_timers(time: Res<Time>, mut timers: Query<&mut TimerComp>) {
     for mut timer in timers.iter_mut() {
         timer.0.tick(time.delta());
+    }
+}
+
+fn visual_day_elapsed(actual_elapsed_secs: f32) -> f32 {
+    if actual_elapsed_secs <= KILLER_FIRE_SECS {
+        actual_elapsed_secs
+    } else {
+        let after_fire = actual_elapsed_secs - KILLER_FIRE_SECS;
+        KILLER_FIRE_SECS + after_fire * (COMPRESSED_VISUAL_TAIL_SECS / POST_FIRE_TAIL_SECS)
     }
 }
 
@@ -123,7 +140,6 @@ fn spawn_sun(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut streetlight_handle: Local<Option<Handle<Scene>>>,
 ) {
-    let day_secs = 160.;
     let init_pos = Vec3::new(10.0, 4.0, 30.);
     let sun_radius = 100.;
     let light = DirectionalLight {
@@ -143,7 +159,7 @@ fn spawn_sun(
             DespawnOnExit(GameState::Above),
             Transform::from_translation(init_pos).looking_at(Vec3::X * 10.0, Vec3::NEG_Y),
             TimerComp(Timer::new(
-                Duration::from_secs(day_secs as u64),
+                Duration::from_secs_f32(ACTUAL_DAY_SECS),
                 TimerMode::Repeating,
             )),
             Sun {
@@ -158,7 +174,7 @@ fn spawn_sun(
         DespawnOnExit(GameState::Above),
         NightTimer,
         TimerComp(Timer::new(
-            Duration::from_secs((day_secs * 0.48) as u64),
+            Duration::from_secs_f32(NIGHT_START_SECS),
             TimerMode::Once,
         )),
     ));
@@ -270,7 +286,7 @@ fn orbit_sun(
         return;
     };
 
-    let u = timer.0.fraction();
+    let u = (visual_day_elapsed(timer.0.elapsed_secs()) / LEGACY_DAY_SECS).clamp(0.0, 1.0);
     let theta = sun.start_angle + u * (sun.end_angle - sun.start_angle);
 
     // YZ-plane parametric circle
@@ -465,7 +481,8 @@ fn restart_day(
     if sun_timer.0.just_finished() {
         night_timer.0.reset();
         if tooltip_handle.is_none() {
-            *tooltip_handle = Some(asset_server.load(GltfAssetLabel::Scene(0).from_asset("tools.glb")));
+            *tooltip_handle =
+                Some(asset_server.load(GltfAssetLabel::Scene(0).from_asset("tools.glb")));
         }
         // hide all dodgy elements that where shown on sun (`ShowOnAlarmTime`)
         for (entity, mut timer, mut show, mut dodgy, children, maybe_tools) in &mut dodgers {
@@ -495,7 +512,10 @@ fn restart_day(
         }
         spawn_replenished_tool_bench(
             &mut commands,
-            tooltip_handle.as_ref().expect("tool scene handle initialized").clone(),
+            tooltip_handle
+                .as_ref()
+                .expect("tool scene handle initialized")
+                .clone(),
         );
 
         // hide capsule

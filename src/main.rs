@@ -4,7 +4,9 @@ use bevy::{
     ecs::message::MessageWriter,
     pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
-    render::render_resource::{AsBindGroup, RenderPipelineDescriptor, SpecializedMeshPipelineError},
+    render::render_resource::{
+        AsBindGroup, RenderPipelineDescriptor, SpecializedMeshPipelineError,
+    },
     shader::ShaderRef,
 };
 use menu::GameMenu;
@@ -34,7 +36,9 @@ use emoji_particles::EmojiPlugin;
 use game_over::GameOver;
 use gnomes::GnomePlugin;
 use input_mapping::InputMappingPlugin;
-use killer_arms::{KillerArmPlugin, KillerHead, KillerPoint, KillerTimer};
+use killer_arms::{
+    KILLER_ARM_FIRE_DELAY_SECS, KillerArmPlugin, KillerHead, KillerPoint, KillerTimer,
+};
 use laser::LaserPlugin;
 use player_movement::{Collider, Player, PlayerPlugin};
 use point_raycast::FirstPersonPickerPlugin;
@@ -553,7 +557,7 @@ fn tag_gltf_on_add(
                 let dur = Duration::from_secs_f32(1.);
                 let mut laser_timer = TimerComp(Timer::new(dur, TimerMode::Once));
                 laser_timer.0.pause();
-                let dur = Duration::from_secs_f32(10.);
+                let dur = Duration::from_secs_f32(KILLER_ARM_FIRE_DELAY_SECS);
                 let mut killer_timer = KillerTimer {
                     timer: Timer::new(dur, TimerMode::Once),
                     can_kill: false,
