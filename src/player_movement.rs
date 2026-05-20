@@ -18,12 +18,27 @@ pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, spawn_player)
+        app.init_resource::<DidFixedTimestepRunThisFrame>()
+            .add_systems(Startup, spawn_player)
             .add_systems(OnEnter(GameState::Menu), reset_player)
+            .add_systems(PreUpdate, clear_fixed_timestep_flag)
+            .add_systems(FixedPreUpdate, set_fixed_time_step_flag)
+            .add_systems(FixedUpdate, advance_physics)
             .add_systems(Update, load_skybox.run_if(in_state(GameState::Above)))
             .add_systems(
-                Update,
-                (move_player, advance_physics, interpolate_rendered_transform)
+                RunFixedMainLoop,
+                (
+                    // player input movement since last physics update is accumulated
+                    // just before the advance_physics `FixedUpdate` and cleared later if/when the
+                    // fixed main loop systems happened
+                    move_player.in_set(RunFixedMainLoopSystems::BeforeFixedMainLoop),
+                    (
+                        clear_input.run_if(did_fixed_timestep_run_this_frame),
+                        interpolate_rendered_transform,
+                    )
+                        .chain()
+                        .in_set(RunFixedMainLoopSystems::AfterFixedMainLoop),
+                )
                     .run_if(not(in_state(GameState::Menu)))
                     .run_if(not(in_state(GameState::GameOver)))
                     .run_if(not(in_state(GameState::EndScreen))),
@@ -33,8 +48,11 @@ impl Plugin for PlayerPlugin {
 
 /// A vector representing the player's input, accumulated over all frames that ran
 /// since the last time the physics simulation was advanced.
-#[derive(Debug, Component, Clone, Copy, PartialEq, Default, Deref, DerefMut)]
-struct AccumulatedInput(Vec3);
+#[derive(Debug, Component, Clone, Copy, PartialEq, Default)]
+struct AccumulatedInput {
+    movement: Vec3,
+    jump: bool,
+}
 
 /// A vector representing the player's velocity in the physics simulation.
 #[derive(Debug, Component, Clone, Copy, PartialEq, Default, Deref, DerefMut)]
@@ -193,28 +211,26 @@ fn move_player(
     right.y = 0.0;
     right = right.normalize_or_zero();
 
+    input.movement = Vec3::ZERO;
+    input.jump = pressed.jump;
+
     if pressed.up {
-        input.0 += forward;
+        input.movement += forward;
     }
     if pressed.down {
-        input.0 -= forward;
+        input.movement -= forward;
     }
     if pressed.left {
-        input.0 -= right;
+        input.movement -= right;
     }
     if pressed.right {
-        input.0 += right;
+        input.movement += right;
     }
 
     // stay on ground: flatten the vector and renormalize
-    let input_normalized = input.normalize_or_zero() * SPEED;
+    let input_normalized = input.movement.normalize_or_zero() * SPEED;
     velocity.0.x = input_normalized.x;
     velocity.0.z = input_normalized.z;
-    let grounded = velocity.0.y.abs() < 0.00001;
-
-    if pressed.jump && grounded {
-        velocity.y += 50.0;
-    }
 }
 
 #[derive(Component, Clone, Copy, Debug)]
@@ -277,8 +293,12 @@ fn advance_physics(
     const SKIN: f32 = 0.001; // small offset to prevent re-intersection
     let dt = fixed_time.delta_secs();
 
-    if let Ok((mut pos, mut prev_pos, mut input, mut vel)) = query.single_mut() {
+    if let Ok((mut pos, mut prev_pos, input, mut vel)) = query.single_mut() {
         // ------------------------------------------------ integrate forces --
+        let grounded = vel.y.abs() < 0.00001;
+        if input.jump && grounded {
+            vel.y += 50.0;
+        }
         vel.y -= GRAVITY * dt;
         prev_pos.0 = pos.0;
 
@@ -329,8 +349,32 @@ fn advance_physics(
 
         // commit
         pos.0 = next;
-        input.0 = Vec3::ZERO; // clear accumulator
     }
+}
+
+#[derive(Resource, Debug, Deref, DerefMut, Default)]
+struct DidFixedTimestepRunThisFrame(bool);
+
+fn clear_fixed_timestep_flag(
+    mut did_fixed_timestep_run_this_frame: ResMut<DidFixedTimestepRunThisFrame>,
+) {
+    did_fixed_timestep_run_this_frame.0 = false;
+}
+
+fn set_fixed_time_step_flag(
+    mut did_fixed_timestep_run_this_frame: ResMut<DidFixedTimestepRunThisFrame>,
+) {
+    did_fixed_timestep_run_this_frame.0 = true;
+}
+
+fn did_fixed_timestep_run_this_frame(
+    did_fixed_timestep_run_this_frame: Res<DidFixedTimestepRunThisFrame>,
+) -> bool {
+    did_fixed_timestep_run_this_frame.0
+}
+
+fn clear_input(mut input: Single<&mut AccumulatedInput, With<Player>>) {
+    **input = AccumulatedInput::default();
 }
 
 fn interpolate_rendered_transform(
